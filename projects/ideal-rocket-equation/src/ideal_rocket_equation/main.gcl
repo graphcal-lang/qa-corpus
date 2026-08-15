@@ -1,0 +1,9 @@
+param empty_mass: Mass = 10000.0 kg;
+param propellant_mass: Mass = 90000.0 kg;
+param specific_impulse: Time = 350.0 s;
+const node standard_gravity: Acceleration = 9.80665 m/s^2;
+
+node initial_mass: Mass = @empty_mass + @propellant_mass;
+node mass_ratio: Dimensionless = @initial_mass / @empty_mass;
+node effective_exhaust_velocity: Velocity = @specific_impulse * @standard_gravity;
+node ideal_delta_v: Velocity = @effective_exhaust_velocity * ln(@mass_ratio);

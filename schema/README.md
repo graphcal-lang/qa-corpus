@@ -1,10 +1,8 @@
-# Bootstrap manifest schema
+# Corpus manifest schema version 1
 
-This document defines schema version 1 for structural validation. `corpus.toml` is the single machine-readable source for the project inventory and QA cases. The bootstrap `test-graphcal` runner uses these fields to run the standard formatting, checking, and evaluation pipeline and report process health. Typed expectation and assertion handling will be added in a later phase; fields not needed for bootstrap validation are intentionally deferred.
+`corpus.toml` is the single machine-readable inventory of Graphcal projects, runnable cases, and their expectations. The structural validator parses it into strict Pydantic models before the runner opens any project data.
 
-## `corpus.toml`
-
-A project and two cases with different entrypoints are represented as:
+## Project inventory
 
 ```toml
 schema_version = 1
@@ -19,41 +17,106 @@ purpose = "Evaluate a nominal launch-vehicle stage sizing analysis."
 
 [[projects.cases]]
 id = "nominal"
-entry = "src/nominal.gcl"
-
-[[projects.cases]]
-id = "contingency"
-entry = "src/contingency.gcl"
+entry = "src/rocket_stage_sizing/main.gcl"
+expectation = { kind = "health-only" }
 ```
-
-The bootstrap validator loads these fields into strict Pydantic models without scalar coercion. It requires and interprets `schema_version`, each project's `id`, `path`, `status`, and `cases`, and each case's `id` and `entry`. Unknown root fields are rejected. Additional project and case fields are temporarily allowed so descriptive, provenance, expectation, assertion, comparison-profile, stage-selection, and timeout metadata can be finalized with the trusted runner; once that schema is complete, these models should reject unknown fields too. Large expected outputs and reference calculations remain files inside the project and are referenced by relative path.
 
 ### Project rules
 
-- `schema_version` must be the integer `1`.
-- `projects` must be an array of tables (or `[]` for an empty corpus).
+- `schema_version` is the integer `1`.
+- `projects` is an array of tables, or `[]` for an empty corpus.
 - `id` is a repository-wide, stable lowercase kebab-case identifier.
-- `path` is exactly `projects/<project-id>`, and the directory name must match `id`.
+- `path` is exactly `projects/<project-id>`, with a directory name matching `id`.
 - `status` is `active` or `quarantined`.
-- Project identifiers and paths must be unique.
-- Every listed path must exist and contain a valid TOML `graphcal.toml`.
-- Every direct child directory of `projects/` must be listed, even when quarantined. Directories never become active by discovery.
-- Every project must declare a `cases` array. An active project must contain at least one case; a quarantined project may use `cases = []`.
+- Project identifiers and paths are unique.
+- Every listed project exists and contains a valid TOML `graphcal.toml`.
+- Every direct child directory of `projects/` is listed, including quarantined candidates. Directories never become active by discovery.
+- Every project declares `cases`. An active project has at least one case; a quarantined project may use `cases = []`.
 
-To add the first project, remove the root `projects = []` before adding `[[projects]]` tables.
+The validator interprets the fields above strictly without scalar coercion. Additional project-level descriptive and provenance metadata is currently allowed. Unknown root, case, expectation, comparison, tolerance, and assertion fields are rejected.
 
-### Case rules
+## Cases
 
-- `id` is stable lowercase kebab-case and unique within its project. The canonical corpus identity is the project ID plus case ID.
-- `entry` is a canonical POSIX path relative to the project directory. It must resolve to an existing regular file inside that project and be unique within the project manifest.
-- A case represents one entrypoint and runs the standard validation pipeline. Do not create separate cases for checking, formatting, and evaluation of the same entrypoint.
-- Stage-specific controls such as skipping evaluation or formatting are deferred until the trusted runner schema is finalized. The obsolete `operation` field is rejected rather than silently ignored.
+Each case has:
 
-Absolute paths, `.` or `..` components, backslashes, symbolic links, and any project or case path resolving outside its allowed root are invalid.
+- `id`: lowercase kebab-case, unique within its project.
+- `entry`: canonical POSIX path to an existing regular file inside the project, unique within that project.
+- `expectation`: exactly one of the typed contracts below.
 
-## Project directories
+A case represents one entrypoint and runs the standard formatting, checking, and evaluation pipeline. Do not create separate cases for those stages. The obsolete `operation` field is rejected.
 
-A project directory contains Graphcal data and supporting evidence, not a second QA manifest:
+The canonical case identity is `<project-id>/<case-id>`. Manifest order determines execution and report order.
+
+## Expectations
+
+### Health-only
+
+```toml
+expectation = { kind = "health-only" }
+```
+
+The case passes when `graphcal format --check`, `graphcal check`, and JSON evaluation all succeed. It makes no numerical correctness or stability claim.
+
+### Stability baseline
+
+```toml
+[projects.cases.expectation]
+kind = "stability-baseline"
+expected = "expected/nominal.json"
+evidence = "reference/baseline.md"
+
+[projects.cases.expectation.comparison]
+mode = "semantic-json"
+tolerances = []
+```
+
+A stability baseline requires:
+
+- `expected`: a strict JSON file under `expected/`.
+- `evidence`: a Markdown record under `reference/` containing producing revisions, inputs, comparison rules, and repeated-run determinism evidence.
+- `comparison.mode`: currently `semantic-json`.
+- `comparison.tolerances`: zero or more narrowly scoped numeric tolerances.
+
+Semantic JSON comparison ignores object key order, preserves array order, rejects missing or additional values, and otherwise compares values exactly by JSON type and value. JSON integers and floats are both numbers. Duplicate object keys, non-finite values, and non-standard constants such as `NaN` are invalid.
+
+An empty tolerance list makes every number exact. A tolerance applies only at one RFC 6901 JSON Pointer:
+
+```toml
+[[projects.cases.expectation.comparison.tolerances]]
+pointer = "/node/delta_v/si_value"
+absolute = 1e-9
+relative = 1e-12
+```
+
+At least one bound is positive. Both bounds are non-negative and finite. The selected expected value must be numeric; duplicate tolerance pointers are rejected. A number passes when Python `math.isclose` accepts it with the declared bounds.
+
+### Reference-backed
+
+```toml
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/delta_v/si_value"
+expected = 7903.226135773521
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/delta_v/unit"
+expected = "m/s"
+```
+
+A reference-backed expectation requires:
+
+- `evidence`: a Markdown calculation and provenance record under `reference/`.
+- `assertions`: one or more unique JSON Pointer assertions against evaluated output.
+
+`expected` is a JSON scalar representable in TOML: boolean, integer, float, or string. Numeric assertions use optional non-negative finite `absolute_tolerance` and `relative_tolerance` values, both zero by default. Non-numeric assertions are exact and cannot declare a positive tolerance.
+
+The checked-in evidence must identify the source, assumptions, adaptations, conventions, independent calculation, and licensing status. The runner enforces the declared values but cannot establish that the evidence itself is trustworthy; human review remains required.
+
+## Project files and paths
 
 ```text
 projects/<project-id>/
@@ -64,8 +127,28 @@ projects/<project-id>/
 └── reference/
 ```
 
-The validator parses `graphcal.toml` as TOML but does not interpret it and never invokes Graphcal or project-provided programs.
+Project, entry, expected, and evidence paths are relative canonical POSIX paths. Absolute paths, backslashes, `.` or `..` components, symbolic links, and any path resolving outside its allowed root are invalid. Expected paths must be `.json` files under `expected/`; evidence paths must be `.md` files under `reference/`.
+
+The validator parses `graphcal.toml` and expected JSON but never invokes Graphcal or project-provided programs.
+
+## Runner report
+
+`test-graphcal` validates the repository, runs active cases, applies their expectations, and emits one versioned JSON report. Each case includes pipeline stage results and an expectation result:
+
+```json
+{
+  "id": "ideal-rocket-equation/mass-ratio-ten",
+  "status": "passed",
+  "expectation": {
+    "kind": "reference-backed",
+    "status": "passed",
+    "issues": []
+  }
+}
+```
+
+Expectation mismatches include their JSON Pointer and, when available, expected and actual values. A case and the overall command fail if any pipeline stage or expectation fails.
 
 ## Versioning
 
-A schema version denotes a contract shared with the Graphcal-side runner. Do not change the meaning of version 1 in place after that runner adopts it. Add a new version and a documented migration instead.
+A schema version is a contract shared by this repository and consumers. Do not change version 1 incompatibly after adoption; add a new version and documented migration instead.

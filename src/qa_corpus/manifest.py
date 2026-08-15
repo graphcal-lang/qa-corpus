@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable
 from enum import StrEnum
@@ -18,6 +19,7 @@ from pydantic import (
 )
 
 ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+INVALID_JSON_POINTER_ESCAPE = re.compile(r"~(?![01])")
 
 
 def _validate_stable_id(value: str) -> str:
@@ -43,7 +45,7 @@ def _validate_project_path(value: str) -> str:
     return value
 
 
-def _validate_case_entry_path(value: str) -> str:
+def _validate_relative_project_path(value: str) -> str:
     path = PurePosixPath(value)
     if "\\" in value:
         raise ValueError("must use POSIX separators")
@@ -56,9 +58,39 @@ def _validate_case_entry_path(value: str) -> str:
     return value
 
 
+def _validate_expected_path(value: str) -> str:
+    path = PurePosixPath(_validate_relative_project_path(value))
+    if path.parts[0] != "expected" or path.suffix != ".json":
+        raise ValueError("must be a JSON file under expected/")
+    return value
+
+
+def _validate_evidence_path(value: str) -> str:
+    path = PurePosixPath(_validate_relative_project_path(value))
+    if path.parts[0] != "reference" or path.suffix != ".md":
+        raise ValueError("must be a Markdown file under reference/")
+    return value
+
+
+def _validate_json_pointer(value: str) -> str:
+    if value and not value.startswith("/"):
+        raise ValueError("must be empty or start with '/'")
+    if INVALID_JSON_POINTER_ESCAPE.search(value):
+        raise ValueError("contains an invalid '~' escape")
+    return value
+
+
 StableId = Annotated[str, AfterValidator(_validate_stable_id)]
 ProjectPath = Annotated[str, AfterValidator(_validate_project_path)]
-CaseEntryPath = Annotated[str, AfterValidator(_validate_case_entry_path)]
+CaseEntryPath = Annotated[str, AfterValidator(_validate_relative_project_path)]
+ExpectedPath = Annotated[str, AfterValidator(_validate_expected_path)]
+EvidencePath = Annotated[str, AfterValidator(_validate_evidence_path)]
+JsonPointer = Annotated[str, AfterValidator(_validate_json_pointer)]
+FiniteNonnegativeFloat = Annotated[
+    float,
+    Field(ge=0.0, allow_inf_nan=False),
+]
+JsonScalar = bool | int | float | str
 
 
 class ProjectStatus(StrEnum):
@@ -66,8 +98,17 @@ class ProjectStatus(StrEnum):
     QUARANTINED = "quarantined"
 
 
-class ExtensibleManifestModel(BaseModel):
-    """Strict bootstrap fields with forward-compatible additional metadata."""
+class StrictManifestModel(BaseModel):
+    model_config = ConfigDict(
+        strict=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+
+class ExtensibleProjectModel(BaseModel):
+    """Strict core project fields with forward-compatible descriptive metadata."""
 
     model_config = ConfigDict(
         strict=True,
@@ -77,9 +118,92 @@ class ExtensibleManifestModel(BaseModel):
     )
 
 
-class CaseEntry(ExtensibleManifestModel):
+class NumericTolerance(StrictManifestModel):
+    pointer: JsonPointer
+    absolute: FiniteNonnegativeFloat = 0.0
+    relative: FiniteNonnegativeFloat = 0.0
+
+    @model_validator(mode="after")
+    def require_nonzero_tolerance(self) -> Self:
+        if self.absolute == 0.0 and self.relative == 0.0:
+            raise ValueError("must set a positive absolute or relative tolerance")
+        return self
+
+
+class SemanticJsonComparison(StrictManifestModel):
+    mode: Literal["semantic-json"]
+    tolerances: list[NumericTolerance] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def reject_duplicate_tolerances(self) -> Self:
+        duplicates = _duplicates(item.pointer for item in self.tolerances)
+        if duplicates:
+            raise ValueError(
+                "; ".join(
+                    f"duplicate numeric tolerance pointer: {pointer!r}"
+                    for pointer in duplicates
+                )
+            )
+        return self
+
+
+class HealthOnlyExpectation(StrictManifestModel):
+    kind: Literal["health-only"]
+
+
+class StabilityBaselineExpectation(StrictManifestModel):
+    kind: Literal["stability-baseline"]
+    expected: ExpectedPath
+    evidence: EvidencePath
+    comparison: SemanticJsonComparison
+
+
+class ValueAssertion(StrictManifestModel):
+    pointer: JsonPointer
+    expected: JsonScalar
+    absolute_tolerance: FiniteNonnegativeFloat = 0.0
+    relative_tolerance: FiniteNonnegativeFloat = 0.0
+
+    @model_validator(mode="after")
+    def validate_tolerance_kind(self) -> Self:
+        if isinstance(self.expected, float) and not math.isfinite(self.expected):
+            raise ValueError("expected number must be finite")
+        has_tolerance = self.absolute_tolerance > 0.0 or self.relative_tolerance > 0.0
+        if has_tolerance and isinstance(self.expected, (bool, str)):
+            raise ValueError("tolerances require a numeric expected value")
+        return self
+
+
+class ReferenceBackedExpectation(StrictManifestModel):
+    kind: Literal["reference-backed"]
+    evidence: EvidencePath
+    assertions: list[ValueAssertion]
+
+    @model_validator(mode="after")
+    def validate_assertions(self) -> Self:
+        if not self.assertions:
+            raise ValueError("must declare at least one assertion")
+        duplicates = _duplicates(assertion.pointer for assertion in self.assertions)
+        if duplicates:
+            raise ValueError(
+                "; ".join(
+                    f"duplicate assertion pointer: {pointer!r}"
+                    for pointer in duplicates
+                )
+            )
+        return self
+
+
+Expectation = Annotated[
+    HealthOnlyExpectation | StabilityBaselineExpectation | ReferenceBackedExpectation,
+    Field(discriminator="kind"),
+]
+
+
+class CaseEntry(StrictManifestModel):
     id: StableId
     entry: CaseEntryPath
+    expectation: Expectation
 
     @model_validator(mode="before")
     @classmethod
@@ -91,7 +215,7 @@ class CaseEntry(ExtensibleManifestModel):
         return value
 
 
-class ProjectEntry(ExtensibleManifestModel):
+class ProjectEntry(ExtensibleProjectModel):
     id: StableId
     path: ProjectPath
     status: ProjectStatus = Field(strict=False)
@@ -120,14 +244,7 @@ class ProjectEntry(ExtensibleManifestModel):
         return self
 
 
-class CorpusManifest(BaseModel):
-    model_config = ConfigDict(
-        strict=True,
-        extra="forbid",
-        frozen=True,
-        hide_input_in_errors=True,
-    )
-
+class CorpusManifest(StrictManifestModel):
     schema_version: Literal[1]
     projects: list[ProjectEntry]
 

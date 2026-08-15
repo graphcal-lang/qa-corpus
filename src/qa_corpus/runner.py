@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
-import json
-import math
 import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
-from qa_corpus.manifest import CorpusManifest, ProjectStatus
+from qa_corpus.comparison import (
+    compare_semantic_json,
+    evaluate_reference_assertions,
+)
+from qa_corpus.json_data import load_json, parse_json
+from qa_corpus.manifest import (
+    CorpusManifest,
+    Expectation,
+    HealthOnlyExpectation,
+    ProjectStatus,
+    ReferenceBackedExpectation,
+    StabilityBaselineExpectation,
+)
 
 StageStatus = Literal["passed", "failed", "skipped"]
+ExpectationStatus = Literal["passed", "failed", "skipped"]
 
 
 @dataclass(frozen=True)
@@ -22,6 +33,7 @@ class CasePlan:
     case_id: str
     project_root: Path
     entry: str
+    expectation: Expectation
 
 
 @dataclass(frozen=True)
@@ -58,6 +70,7 @@ def plan_active_cases(root: Path, manifest: CorpusManifest) -> tuple[CasePlan, .
             case_id=case.id,
             project_root=root / project.path,
             entry=case.entry,
+            expectation=case.expectation,
         )
         for project in manifest.projects
         if project.status is ProjectStatus.ACTIVE
@@ -112,28 +125,13 @@ def _run_stage(command: list[str], cwd: Path, timeout: float) -> StageResult:
     )
 
 
-def _reject_nonstandard_json_constant(value: str) -> None:
-    raise ValueError(f"non-standard JSON constant {value!r}")
-
-
-def _parse_finite_json_float(value: str) -> float:
-    parsed = float(value)
-    if not math.isfinite(parsed):
-        raise ValueError(f"JSON number is outside the finite float range: {value}")
-    return parsed
-
-
 def _parse_evaluation_result(stage: StageResult) -> StageResult:
     if stage.status != "passed":
         return stage
 
     try:
-        result = json.loads(
-            stage.stdout,
-            parse_constant=_reject_nonstandard_json_constant,
-            parse_float=_parse_finite_json_float,
-        )
-    except (json.JSONDecodeError, ValueError) as error:
+        result = parse_json(stage.stdout)
+    except ValueError as error:
         return replace(
             stage,
             status="failed",
@@ -151,6 +149,78 @@ def _skipped_stage(reason: str) -> StageResult:
         stderr="",
         error=reason,
     )
+
+
+def _expectation_report(
+    kind: str,
+    status: ExpectationStatus,
+    issues: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {"kind": kind, "status": status, "issues": issues}
+
+
+def _evaluate_expectation(
+    plan: CasePlan,
+    formatting: StageResult,
+    check: StageResult,
+    evaluation: StageResult,
+) -> dict[str, Any]:
+    pipeline_passed = all(
+        stage.status == "passed" for stage in (formatting, check, evaluation)
+    )
+    match plan.expectation:
+        case HealthOnlyExpectation() as expectation:
+            issues = (
+                []
+                if pipeline_passed
+                else [{"message": "one or more pipeline stages failed"}]
+            )
+            return _expectation_report(
+                expectation.kind,
+                "passed" if pipeline_passed else "failed",
+                issues,
+            )
+        case StabilityBaselineExpectation() as expectation:
+            if evaluation.status != "passed" or not evaluation.has_result:
+                return _expectation_report(
+                    expectation.kind,
+                    "skipped",
+                    [{"message": "evaluation did not produce a JSON result"}],
+                )
+            try:
+                expected = load_json(plan.project_root / expectation.expected)
+            except (OSError, UnicodeError, ValueError) as error:
+                return _expectation_report(
+                    expectation.kind,
+                    "failed",
+                    [{"message": f"could not load expected JSON: {error}"}],
+                )
+            issues = compare_semantic_json(
+                expected,
+                evaluation.result,
+                expectation.comparison,
+            )
+            return _expectation_report(
+                expectation.kind,
+                "failed" if issues else "passed",
+                issues,
+            )
+        case ReferenceBackedExpectation() as expectation:
+            if evaluation.status != "passed" or not evaluation.has_result:
+                return _expectation_report(
+                    expectation.kind,
+                    "skipped",
+                    [{"message": "evaluation did not produce a JSON result"}],
+                )
+            issues = evaluate_reference_assertions(
+                evaluation.result,
+                expectation,
+            )
+            return _expectation_report(
+                expectation.kind,
+                "failed" if issues else "passed",
+                issues,
+            )
 
 
 def _run_case(
@@ -188,11 +258,13 @@ def _run_case(
     else:
         evaluation = _skipped_stage("not run because checking failed")
 
+    expectation = _evaluate_expectation(plan, formatting, check, evaluation)
     status = (
         "passed"
         if formatting.status == "passed"
         and check.status == "passed"
         and evaluation.status == "passed"
+        and expectation["status"] == "passed"
         else "failed"
     )
     return {
@@ -201,6 +273,7 @@ def _run_case(
         "case_id": plan.case_id,
         "entry": plan.entry,
         "status": status,
+        "expectation": expectation,
         "stages": {
             "format": formatting.to_json(),
             "check": check.to_json(),

@@ -23,7 +23,25 @@ def case_entry(
     identifier: str = "nominal",
     entry: str = "src/main.gcl",
 ) -> str:
-    return f'[[projects.cases]]\nid = "{identifier}"\nentry = "{entry}"\n'
+    return (
+        f'[[projects.cases]]\nid = "{identifier}"\nentry = "{entry}"\n'
+        'expectation = { kind = "health-only" }\n'
+    )
+
+
+def stability_case_entry(
+    *,
+    expected: str = "expected/nominal.json",
+    evidence: str = "reference/baseline.md",
+    tolerances: str = "[]",
+) -> str:
+    return (
+        '[[projects.cases]]\nid = "nominal"\nentry = "src/main.gcl"\n'
+        'expectation = { kind = "stability-baseline", '
+        f'expected = "{expected}", evidence = "{evidence}", '
+        'comparison = { mode = "semantic-json", '
+        f"tolerances = {tolerances} }} }}\n"
+    )
 
 
 def inventory_entry(
@@ -108,17 +126,28 @@ def test_rejects_unknown_root_fields(tmp_path: Path) -> None:
     ), errors
 
 
-def test_accepts_deferred_project_and_case_metadata(tmp_path: Path) -> None:
+def test_accepts_deferred_project_metadata(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     path = "projects/metadata"
-    cases = case_entry() + 'expectation = "health-only"\n'
-    project = inventory_entry("metadata", path, cases).replace(
+    project = inventory_entry("metadata", path).replace(
         'status = "active"\n', 'status = "active"\ndomain = "systems"\n'
     )
     write_inventory(root, project)
     create_project(root, path)
 
     assert validate_repository(root) == []
+
+
+def test_rejects_unknown_case_metadata(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/metadata"
+    cases = case_entry() + "unexpected = true\n"
+    write_inventory(root, inventory_entry("metadata", path, cases))
+    create_project(root, path)
+
+    errors = validate_repository(root)
+
+    assert any("unexpected" in error and "not permitted" in error for error in errors)
 
 
 def test_accepts_project_without_separate_qa_manifest(tmp_path: Path) -> None:
@@ -140,6 +169,18 @@ def test_accepts_multiple_case_entrypoints(tmp_path: Path) -> None:
     create_project(root, path, ("src/nominal.gcl", "src/contingency.gcl"))
 
     assert validate_repository(root) == []
+
+
+def test_rejects_case_without_expectation(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/no-expectation"
+    cases = '[[projects.cases]]\nid = "nominal"\nentry = "src/main.gcl"\n'
+    write_inventory(root, inventory_entry("no-expectation", path, cases))
+    create_project(root, path)
+
+    errors = validate_repository(root)
+
+    assert any("expectation" in error and "required" in error for error in errors)
 
 
 def test_rejects_case_operation(tmp_path: Path) -> None:
@@ -258,6 +299,73 @@ def test_rejects_missing_case_entry_file(tmp_path: Path) -> None:
     errors = validate_repository(root)
 
     assert any("Case entry file is missing" in error for error in errors), errors
+
+
+def test_accepts_stability_baseline_files(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/baseline"
+    write_inventory(root, inventory_entry("baseline", path, stability_case_entry()))
+    create_project(root, path)
+    project = root / path
+    (project / "expected").mkdir()
+    (project / "expected" / "nominal.json").write_text(
+        '{"value": 1.0}\n', encoding="utf-8"
+    )
+    (project / "reference").mkdir()
+    (project / "reference" / "baseline.md").write_text("# Evidence\n", encoding="utf-8")
+
+    assert validate_repository(root) == []
+
+
+def test_rejects_missing_stability_baseline_files(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/baseline"
+    write_inventory(root, inventory_entry("baseline", path, stability_case_entry()))
+    create_project(root, path)
+
+    errors = validate_repository(root)
+
+    assert any("Missing expected JSON" in error for error in errors), errors
+    assert any("Missing stability evidence" in error for error in errors), errors
+
+
+def test_rejects_malformed_expected_json(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/baseline"
+    write_inventory(root, inventory_entry("baseline", path, stability_case_entry()))
+    create_project(root, path)
+    project = root / path
+    (project / "expected").mkdir()
+    (project / "expected" / "nominal.json").write_text(
+        '{"duplicate": 1, "duplicate": 2}\n', encoding="utf-8"
+    )
+    (project / "reference").mkdir()
+    (project / "reference" / "baseline.md").write_text("# Evidence\n", encoding="utf-8")
+
+    errors = validate_repository(root)
+
+    assert any("duplicate JSON object key" in error for error in errors), errors
+
+
+def test_rejects_invalid_stability_tolerance_pointer(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/baseline"
+    cases = stability_case_entry(
+        tolerances='[{ pointer = "/missing", absolute = 0.1 }]'
+    )
+    write_inventory(root, inventory_entry("baseline", path, cases))
+    create_project(root, path)
+    project = root / path
+    (project / "expected").mkdir()
+    (project / "expected" / "nominal.json").write_text(
+        '{"value": 1.0}\n', encoding="utf-8"
+    )
+    (project / "reference").mkdir()
+    (project / "reference" / "baseline.md").write_text("# Evidence\n", encoding="utf-8")
+
+    errors = validate_repository(root)
+
+    assert any("tolerance '/missing'" in error for error in errors), errors
 
 
 def test_rejects_case_entry_traversal(tmp_path: Path) -> None:

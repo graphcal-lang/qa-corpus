@@ -31,7 +31,7 @@ Corpus projects are data-only and must not contain executable test hooks. This r
 │       ├── inputs/
 │       ├── expected/
 │       └── reference/
-├── schema/README.md            # bootstrap manifest contract
+├── schema/README.md            # versioned manifest and expectation contract
 └── src/qa_corpus/              # structural validator and local executable runner
 ```
 
@@ -47,7 +47,7 @@ Corpus structure is valid.
 $ uv run -m pytest
 ```
 
-The validator parses `corpus.toml` into strict Pydantic models and parses each `graphcal.toml`, then rejects invalid types, duplicate project or case identifiers, missing or undeclared projects, missing case entry files, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
+The validator parses `corpus.toml` into strict Pydantic models and parses each `graphcal.toml` and stability-baseline JSON file. It rejects invalid types, duplicate identifiers, missing or undeclared files, malformed expectations, invalid JSON Pointers, symlinks, and paths that can escape this repository. It never executes project content.
 
 ## Test a Graphcal executable
 
@@ -59,9 +59,9 @@ $ uv run test-graphcal /path/to/graphcal > report.json
 
 The command first validates the repository. For each active case, in manifest order, it runs `graphcal format --check`, `graphcal check`, and `graphcal eval --format json` from the project directory. Evaluation is skipped when checking fails. Each process has a 30-second timeout by default; use `--timeout SECONDS` to change it.
 
-Stdout contains only one versioned JSON report with the overall status, summary counts, per-stage exit codes and captured output, and parsed evaluation results. The command exits zero only when every stage for every active case passes. Quarantined projects are not run.
+After evaluation, the runner applies each case's typed expectation: pipeline success for `health-only`, semantic JSON comparison for `stability-baseline`, or JSON Pointer assertions for `reference-backed`. Stdout contains only one versioned JSON report with overall status, summary counts, per-stage exit codes and captured output, parsed evaluation results, and expectation issues. The command exits zero only when every stage and expectation for every active case passes. Quarantined projects are not run.
 
-This bootstrap runner checks pipeline health and captures semantic JSON; it does not yet apply deferred reference or stability assertions.
+The corpus includes one minimal active example of each expectation class. See [`schema/README.md`](schema/README.md) for the complete manifest and comparison contract.
 
 ## License
 

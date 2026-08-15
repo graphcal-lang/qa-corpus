@@ -7,7 +7,16 @@ import tomllib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from qa_corpus.manifest import CorpusManifest, ProjectEntry, parse_manifest
+from qa_corpus.comparison import validate_comparison_profile
+from qa_corpus.json_data import load_json
+from qa_corpus.manifest import (
+    CaseEntry,
+    CorpusManifest,
+    ProjectEntry,
+    ReferenceBackedExpectation,
+    StabilityBaselineExpectation,
+    parse_manifest,
+)
 
 
 def _load_toml(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -63,6 +72,65 @@ def _is_within(path: Path, root: Path) -> bool:
         return False
 
 
+def _validate_support_file(
+    project_root: Path,
+    relative_path: str,
+    label: str,
+) -> tuple[Path, list[str]]:
+    path = (project_root / Path(*PurePosixPath(relative_path).parts)).resolve()
+    if not _is_within(path, project_root):
+        return path, [f"{label} escapes its project: {relative_path!r}"]
+    if not path.is_file():
+        return path, [f"Missing {label}: {relative_path}"]
+    return path, []
+
+
+def _validate_case_expectation(
+    project_root: Path,
+    project_id: str,
+    case: CaseEntry,
+) -> list[str]:
+    case_label = f"{project_id}/{case.id}"
+    match case.expectation:
+        case StabilityBaselineExpectation() as expectation:
+            expected_path, errors = _validate_support_file(
+                project_root,
+                expectation.expected,
+                f"expected JSON for {case_label}",
+            )
+            _, evidence_errors = _validate_support_file(
+                project_root,
+                expectation.evidence,
+                f"stability evidence for {case_label}",
+            )
+            errors.extend(evidence_errors)
+            if expected_path.is_file() and _is_within(expected_path, project_root):
+                try:
+                    expected = load_json(expected_path)
+                except (OSError, UnicodeError, ValueError) as error:
+                    errors.append(
+                        f"Malformed expected JSON for {case_label} at "
+                        f"{expectation.expected}: {error}"
+                    )
+                else:
+                    errors.extend(
+                        f"Invalid comparison profile for {case_label}: {error}"
+                        for error in validate_comparison_profile(
+                            expected, expectation.comparison
+                        )
+                    )
+            return errors
+        case ReferenceBackedExpectation() as expectation:
+            _, errors = _validate_support_file(
+                project_root,
+                expectation.evidence,
+                f"reference evidence for {case_label}",
+            )
+            return errors
+        case _:
+            return []
+
+
 def _validate_declared_project(root: Path, project: ProjectEntry) -> list[str]:
     project_root = (root / Path(*PurePosixPath(project.path).parts)).resolve()
     if not _is_within(project_root, root):
@@ -85,6 +153,7 @@ def _validate_declared_project(root: Path, project: ProjectEntry) -> list[str]:
             )
         elif not case_path.is_file():
             errors.append(f"Case entry file is missing for {case_label}: {case.entry}")
+        errors.extend(_validate_case_expectation(project_root, project.id, case))
 
     return errors
 

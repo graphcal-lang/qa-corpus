@@ -37,7 +37,8 @@ def create_repository(tmp_path: Path) -> Path:
         'status = "active"\n'
         "[[projects.cases]]\n"
         'id = "nominal"\n'
-        'entry = "src/main.gcl"\n\n'
+        'entry = "src/main.gcl"\n'
+        'expectation = { kind = "health-only" }\n\n'
         "[[projects]]\n"
         'id = "quarantined-project"\n'
         'path = "projects/quarantined-project"\n'
@@ -176,6 +177,55 @@ esac
     evaluation = report["cases"][0]["stages"]["eval"]
     assert evaluation["status"] == "failed"
     assert "not valid JSON" in evaluation["error"]
+
+
+def test_fails_case_when_stability_baseline_differs(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    inventory = (
+        (root / "corpus.toml")
+        .read_text(encoding="utf-8")
+        .replace(
+            'expectation = { kind = "health-only" }',
+            'expectation = { kind = "stability-baseline", '
+            'expected = "expected/nominal.json", '
+            'evidence = "reference/baseline.md", '
+            'comparison = { mode = "semantic-json", tolerances = [] } }',
+            1,
+        )
+    )
+    (root / "corpus.toml").write_text(inventory, encoding="utf-8")
+    project = root / "projects" / "active-project"
+    (project / "expected").mkdir()
+    (project / "expected" / "nominal.json").write_text(
+        '{"node":{"answer":42}}\n', encoding="utf-8"
+    )
+    (project / "reference").mkdir()
+    (project / "reference" / "baseline.md").write_text("# Evidence\n", encoding="utf-8")
+    executable = create_executable(
+        tmp_path,
+        """
+case "$1" in
+  format) exit 0 ;;
+  check) exit 0 ;;
+  eval) printf '{"node":{"answer":43}}\\n'; exit 0 ;;
+  *) exit 64 ;;
+esac
+""",
+    )
+
+    exit_code, report = invoke(executable, root)
+
+    assert exit_code == 1
+    expectation = report["cases"][0]["expectation"]
+    assert expectation["status"] == "failed"
+    assert expectation["issues"] == [
+        {
+            "pointer": "/node/answer",
+            "message": "values differ",
+            "expected": 42,
+            "actual": 43,
+        }
+    ]
 
 
 def test_reports_structural_errors_as_json_without_execution(

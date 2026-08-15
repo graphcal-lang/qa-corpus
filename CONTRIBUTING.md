@@ -67,7 +67,7 @@ A health-only case checks only an expected command outcome, such as successful p
 - Keep collection order significant where Graphcal defines it as significant; compare JSON objects semantically rather than by textual key order.
 - Do not add scripts or hooks that corpus CI or the trusted Graphcal runner must execute.
 
-The bootstrap schema is documented in [schema/README.md](schema/README.md). Schema evolution must remain coordinated with the trusted Graphcal runner.
+The versioned manifest and expectation schema is documented in [schema/README.md](schema/README.md). Schema evolution must remain coordinated with runner consumers.
 
 ## Pull request checklist
 
