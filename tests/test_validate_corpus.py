@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.validate_corpus import validate_repository
+from qa_corpus import validate_repository
 
 
 def create_repository(tmp_path: Path) -> Path:

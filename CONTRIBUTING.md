@@ -17,7 +17,7 @@ Initial corpus projects must not require network access, private or unpinned dep
 
 1. **Generate locally.** Humans or coding agents may create a candidate outside CI. Record the generator or author and the generation method.
 2. **Perform privacy review.** Apply [PRIVACY.md](PRIVACY.md) to names, paths, comments, source, inputs, expected outputs, references, and history. Agent generation and automated scanning do not replace human inspection.
-3. **Check structure.** Put the project at `projects/<project-id>/`, add `graphcal.toml`, declare the project and all QA cases in `corpus.toml`, and run `uv run scripts/validate_corpus.py`.
+3. **Check structure.** Put the project at `projects/<project-id>/`, add `graphcal.toml`, declare the project and all QA cases in `corpus.toml`, and run `uv run validate-corpus`.
 4. **Classify every expectation.** Use `reference-backed`, `stability-baseline`, or `health-only` according to the evidence described below. Do not present stability output as a correctness oracle.
 5. **Verify evidence.** Independently check reference-backed assertions. Capture provenance and repeated-run determinism for stability baselines.
 6. **Submit a pull request.** Explain the project's origin, purpose, coverage, evidence, licensing, and privacy review.

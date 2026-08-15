@@ -32,7 +32,7 @@ The corpus is data-only. Graphcal's trusted runner lives in the Graphcal reposit
 │       ├── expected/
 │       └── reference/
 ├── schema/README.md            # bootstrap manifest contract
-└── scripts/validate_corpus.py  # trusted structural validator
+└── src/qa_corpus/              # trusted structural validator package
 ```
 
 Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, and all of its QA cases must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus. Cases may reference different entry files within the same project.
@@ -42,8 +42,8 @@ Projects are never discovered as runnable tests merely because they exist on dis
 [`uv`](https://docs.astral.sh/uv/) installs the pinned Python 3.14 toolchain and test dependencies:
 
 ```console
-$ uv run scripts/validate_corpus.py
-Corpus structure is valid (0 declared projects).
+$ uv run validate-corpus
+Corpus structure is valid.
 $ uv run -m pytest
 ```
 

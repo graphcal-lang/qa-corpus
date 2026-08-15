@@ -36,4 +36,4 @@ jobs:
         run: uv run --locked -m pytest
 
       - name: Validate corpus structure
-        run: uv run --locked scripts/validate_corpus.py
+        run: uv run --locked validate-corpus

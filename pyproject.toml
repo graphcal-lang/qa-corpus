@@ -6,7 +6,17 @@ dependencies = [
     "pydantic>=2.13.4",
 ]
 
+[project.scripts]
+validate-corpus = "qa_corpus.cli:main"
+
 [dependency-groups]
 dev = [
   "pytest>=9.1.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "qa_corpus"
