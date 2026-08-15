@@ -23,11 +23,10 @@ The corpus is data-only. Graphcal's trusted runner lives in the Graphcal reposit
 
 ```text
 .
-├── corpus.toml                 # explicit project inventory
+├── corpus.toml                 # project inventory and QA cases
 ├── projects/
-│   └── <domain>/<project>/
+│   └── <project-id>/
 │       ├── graphcal.toml       # Graphcal project manifest
-│       ├── qa.toml             # QA metadata and cases
 │       ├── src/
 │       ├── inputs/
 │       ├── expected/
@@ -36,7 +35,7 @@ The corpus is data-only. Graphcal's trusted runner lives in the Graphcal reposit
 └── scripts/validate_corpus.py  # trusted structural validator
 ```
 
-Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus.
+Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, and all of its QA cases must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus. Cases may reference different entry files within the same project.
 
 ## Validate locally
 
@@ -48,7 +47,7 @@ Corpus structure is valid (0 declared projects).
 $ uv run -m pytest
 ```
 
-The validator parses manifests and rejects duplicate identifiers, missing or undeclared projects, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
+The validator parses `corpus.toml` and each `graphcal.toml`, then rejects duplicate project or case identifiers, missing or undeclared projects, missing case entry files, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
 
 ## License
 

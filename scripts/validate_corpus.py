@@ -16,6 +16,14 @@ from typing import Any
 SCHEMA_VERSION = 1
 ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 PROJECT_STATUSES = frozenset({"active", "quarantined"})
+CASE_OPERATIONS = frozenset({"check", "evaluate"})
+
+
+@dataclass(frozen=True)
+class CaseEntry:
+    identifier: str
+    entry: str
+    operation: str
 
 
 @dataclass(frozen=True)
@@ -23,6 +31,7 @@ class ProjectEntry:
     identifier: str
     path: str
     status: str
+    cases: tuple[CaseEntry, ...]
 
 
 def _load_toml(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -51,7 +60,7 @@ def _validate_schema_version(data: dict[str, Any], label: str) -> list[str]:
     return []
 
 
-def _validate_project_path(raw_path: str) -> list[str]:
+def _validate_project_path(raw_path: str, identifier: str | None = None) -> list[str]:
     path = PurePosixPath(raw_path)
     errors: list[str] = []
 
@@ -61,10 +70,9 @@ def _validate_project_path(raw_path: str) -> list[str]:
         errors.append(f"Project path must be relative: {raw_path!r}")
     if path.as_posix() != raw_path:
         errors.append(f"Project path must be canonical: {raw_path!r}")
-    if len(path.parts) != 3 or not path.parts or path.parts[0] != "projects":
+    if len(path.parts) != 2 or not path.parts or path.parts[0] != "projects":
         errors.append(
-            "Project path must have exactly the form "
-            f"projects/<domain>/<project>: {raw_path!r}"
+            f"Project path must have exactly the form projects/<project-id>: {raw_path!r}"
         )
     if any(part in {"", ".", ".."} for part in path.parts):
         errors.append(f"Project path contains an invalid component: {raw_path!r}")
@@ -72,8 +80,78 @@ def _validate_project_path(raw_path: str) -> list[str]:
         errors.append(
             f"Project path components must be lowercase kebab-case: {raw_path!r}"
         )
+    if len(path.parts) == 2 and identifier is not None and path.parts[1] != identifier:
+        errors.append(f"Project path must end with its id {identifier!r}: {raw_path!r}")
 
     return errors
+
+
+def _validate_case_entry_path(raw_path: str) -> list[str]:
+    path = PurePosixPath(raw_path)
+    errors: list[str] = []
+
+    if "\\" in raw_path:
+        errors.append(f"Case entry must use POSIX separators: {raw_path!r}")
+    if path.is_absolute():
+        errors.append(f"Case entry must be relative: {raw_path!r}")
+    if path.as_posix() != raw_path:
+        errors.append(f"Case entry must be canonical: {raw_path!r}")
+    if not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+        errors.append(f"Case entry contains an invalid component: {raw_path!r}")
+
+    return errors
+
+
+def _parse_cases(
+    raw_cases: Any, project_label: str, status: Any
+) -> tuple[tuple[CaseEntry, ...], list[str]]:
+    if not isinstance(raw_cases, list):
+        return (), [f"{project_label}.cases must be an array of tables"]
+
+    errors: list[str] = []
+    cases: list[CaseEntry] = []
+    for index, raw_case in enumerate(raw_cases):
+        label = f"{project_label}.cases[{index}]"
+        if not isinstance(raw_case, dict):
+            errors.append(f"{label} must be a table")
+            continue
+
+        identifier = raw_case.get("id")
+        entry = raw_case.get("entry")
+        operation = raw_case.get("operation")
+
+        if not isinstance(identifier, str):
+            errors.append(f"{label}.id must be a string")
+        elif not ID_PATTERN.fullmatch(identifier):
+            errors.append(f"{label}.id must be lowercase kebab-case: {identifier!r}")
+
+        if not isinstance(entry, str):
+            errors.append(f"{label}.entry must be a string")
+        else:
+            errors.extend(_validate_case_entry_path(entry))
+
+        if not isinstance(operation, str):
+            errors.append(f"{label}.operation must be a string")
+        elif operation not in CASE_OPERATIONS:
+            allowed = ", ".join(sorted(CASE_OPERATIONS))
+            errors.append(f"{label}.operation must be one of {allowed}: {operation!r}")
+
+        if all(isinstance(value, str) for value in (identifier, entry, operation)):
+            cases.append(CaseEntry(identifier, entry, operation))
+
+    duplicate_ids = sorted(
+        identifier
+        for identifier, count in Counter(case.identifier for case in cases).items()
+        if count > 1
+    )
+    errors.extend(
+        f"Duplicate case id in {project_label}: {identifier!r}"
+        for identifier in duplicate_ids
+    )
+    if status == "active" and not raw_cases:
+        errors.append(f"{project_label} must declare at least one case while active")
+
+    return tuple(cases), errors
 
 
 def _parse_inventory(data: dict[str, Any]) -> tuple[list[ProjectEntry], list[str]]:
@@ -92,6 +170,8 @@ def _parse_inventory(data: dict[str, Any]) -> tuple[list[ProjectEntry], list[str
         identifier = raw_entry.get("id")
         path = raw_entry.get("path")
         status = raw_entry.get("status")
+        cases, case_errors = _parse_cases(raw_entry.get("cases"), label, status)
+        errors.extend(case_errors)
 
         if not isinstance(identifier, str):
             errors.append(f"{label}.id must be a string")
@@ -101,7 +181,11 @@ def _parse_inventory(data: dict[str, Any]) -> tuple[list[ProjectEntry], list[str
         if not isinstance(path, str):
             errors.append(f"{label}.path must be a string")
         else:
-            errors.extend(_validate_project_path(path))
+            errors.extend(
+                _validate_project_path(
+                    path, identifier if isinstance(identifier, str) else None
+                )
+            )
 
         if not isinstance(status, str):
             errors.append(f"{label}.status must be a string")
@@ -110,7 +194,7 @@ def _parse_inventory(data: dict[str, Any]) -> tuple[list[ProjectEntry], list[str
             errors.append(f"{label}.status must be one of {allowed}: {status!r}")
 
         if all(isinstance(value, str) for value in (identifier, path, status)):
-            entries.append(ProjectEntry(identifier, path, status))
+            entries.append(ProjectEntry(identifier, path, status, cases))
 
     duplicate_ids = sorted(
         identifier
@@ -153,9 +237,7 @@ def _discover_project_directories(projects_root: Path) -> set[str]:
 
     return {
         project.relative_to(projects_root.parent).as_posix()
-        for domain in projects_root.iterdir()
-        if domain.is_dir() and not domain.is_symlink()
-        for project in domain.iterdir()
+        for project in projects_root.iterdir()
         if project.is_dir() and not project.is_symlink()
     }
 
@@ -168,25 +250,8 @@ def _is_within(path: Path, root: Path) -> bool:
         return False
 
 
-def _validate_qa_manifest(
-    data: dict[str, Any], entry: ProjectEntry, manifest_path: Path
-) -> list[str]:
-    errors = _validate_schema_version(data, manifest_path.as_posix())
-    project = data.get("project")
-    if not isinstance(project, dict):
-        return errors + [f"{manifest_path} must contain a [project] table"]
-
-    identifier = project.get("id")
-    if identifier != entry.identifier:
-        errors.append(
-            f"{manifest_path} project.id must match {entry.identifier!r}, "
-            f"got {identifier!r}"
-        )
-    return errors
-
-
 def _validate_declared_project(root: Path, entry: ProjectEntry) -> list[str]:
-    path_errors = _validate_project_path(entry.path)
+    path_errors = _validate_project_path(entry.path, entry.identifier)
     if path_errors:
         return []
 
@@ -202,11 +267,17 @@ def _validate_declared_project(root: Path, entry: ProjectEntry) -> list[str]:
     )
     errors.extend(graphcal_errors)
 
-    qa_path = project_root / "qa.toml"
-    qa_data, qa_errors = _load_toml(qa_path, "QA project manifest")
-    errors.extend(qa_errors)
-    if qa_data is not None:
-        errors.extend(_validate_qa_manifest(qa_data, entry, qa_path))
+    for case in entry.cases:
+        if _validate_case_entry_path(case.entry):
+            continue
+        case_path = (project_root / Path(*PurePosixPath(case.entry).parts)).resolve()
+        case_label = f"{entry.identifier}/{case.identifier}"
+        if not _is_within(case_path, project_root):
+            errors.append(
+                f"Case entry escapes its project for {case_label}: {case.entry!r}"
+            )
+        elif not case_path.is_file():
+            errors.append(f"Case entry file is missing for {case_label}: {case.entry}")
 
     return errors
 

@@ -17,7 +17,7 @@ Initial corpus projects must not require network access, private or unpinned dep
 
 1. **Generate locally.** Humans or coding agents may create a candidate outside CI. Record the generator or author and the generation method.
 2. **Perform privacy review.** Apply [PRIVACY.md](PRIVACY.md) to names, paths, comments, source, inputs, expected outputs, references, and history. Agent generation and automated scanning do not replace human inspection.
-3. **Check structure.** Put the project at `projects/<domain>/<project>/`, add `graphcal.toml` and `qa.toml`, declare the exact path in `corpus.toml`, and run `uv run scripts/validate_corpus.py`.
+3. **Check structure.** Put the project at `projects/<project-id>/`, add `graphcal.toml`, declare the project and all QA cases in `corpus.toml`, and run `uv run scripts/validate_corpus.py`.
 4. **Classify every expectation.** Use `reference-backed`, `stability-baseline`, or `health-only` according to the evidence described below. Do not present stability output as a correctness oracle.
 5. **Verify evidence.** Independently check reference-backed assertions. Capture provenance and repeated-run determinism for stability baselines.
 6. **Submit a pull request.** Explain the project's origin, purpose, coverage, evidence, licensing, and privacy review.
@@ -59,7 +59,8 @@ A health-only case checks only an expected command outcome, such as successful p
 ## Project and manifest rules
 
 - Use stable lowercase kebab-case identifiers. Do not recycle an identifier for a different analysis.
-- Keep each project under exactly `projects/<domain>/<project>/` and declare it in `corpus.toml`.
+- Keep each project under exactly `projects/<project-id>/`, with the directory name matching the project ID, and declare it in `corpus.toml`.
+- Declare each entrypoint and operation as a separate case under its project in `corpus.toml`; multiple cases may use the same or different entry files.
 - Keep inputs and references in the project directory. Symbolic links are prohibited.
 - Provide a short engineering question and document assumptions, constants, sign conventions, and unit conventions.
 - Use narrowly justified per-assertion tolerances. Do not rely on a permissive global tolerance.

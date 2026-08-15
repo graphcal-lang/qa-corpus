@@ -19,27 +19,49 @@ def write_inventory(root: Path, projects: str = "projects = []") -> None:
     )
 
 
+def case_entry(
+    identifier: str = "nominal-check",
+    entry: str = "src/main.gcl",
+    operation: str = "check",
+) -> str:
+    return (
+        "[[projects.cases]]\n"
+        f'id = "{identifier}"\n'
+        f'entry = "{entry}"\n'
+        f'operation = "{operation}"\n'
+    )
+
+
+def inventory_entry(
+    identifier: str,
+    path: str,
+    cases: str | None = None,
+    status: str = "active",
+) -> str:
+    return (
+        "[[projects]]\n"
+        f'id = "{identifier}"\n'
+        f'path = "{path}"\n'
+        f'status = "{status}"\n'
+        f"{case_entry() if cases is None else cases}"
+    )
+
+
 def create_project(
     root: Path,
     path: str,
-    identifier: str,
+    entries: tuple[str, ...] = ("src/main.gcl",),
     *,
     graphcal_manifest: bool = True,
-    qa_manifest: bool = True,
 ) -> None:
     project_root = root / path
     project_root.mkdir(parents=True)
     if graphcal_manifest:
         (project_root / "graphcal.toml").write_text("", encoding="utf-8")
-    if qa_manifest:
-        (project_root / "qa.toml").write_text(
-            f'schema_version = 1\n\n[project]\nid = "{identifier}"\n',
-            encoding="utf-8",
-        )
-
-
-def inventory_entry(identifier: str, path: str) -> str:
-    return f'[[projects]]\nid = "{identifier}"\npath = "{path}"\nstatus = "active"\n'
+    for entry in entries:
+        entry_path = project_root / entry
+        entry_path.parent.mkdir(parents=True, exist_ok=True)
+        entry_path.write_text("", encoding="utf-8")
 
 
 def test_accepts_empty_inventory(tmp_path: Path) -> None:
@@ -49,30 +71,78 @@ def test_accepts_empty_inventory(tmp_path: Path) -> None:
     assert validate_repository(root) == []
 
 
-def test_accepts_declared_project_with_both_manifests(tmp_path: Path) -> None:
+def test_accepts_project_without_separate_qa_manifest(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
-    path = "projects/propulsion/rocket-stage-sizing"
+    path = "projects/rocket-stage-sizing"
     write_inventory(root, inventory_entry("rocket-stage-sizing", path))
-    create_project(root, path, "rocket-stage-sizing")
+    create_project(root, path)
 
     assert validate_repository(root) == []
 
 
-def test_rejects_duplicate_project_ids(tmp_path: Path) -> None:
+def test_accepts_multiple_case_entrypoints(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
-    first_path = "projects/propulsion/first"
-    second_path = "projects/thermal/second"
+    path = "projects/power-budget"
+    cases = case_entry("nominal-check", "src/nominal.gcl", "check") + case_entry(
+        "contingency-eval", "src/contingency.gcl", "evaluate"
+    )
+    write_inventory(root, inventory_entry("power-budget", path, cases))
+    create_project(root, path, ("src/nominal.gcl", "src/contingency.gcl"))
+
+    assert validate_repository(root) == []
+
+
+def test_accepts_quarantined_project_without_cases(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/generated-candidate"
     write_inventory(
         root,
-        inventory_entry("duplicate", first_path)
-        + inventory_entry("duplicate", second_path),
+        inventory_entry(
+            "generated-candidate", path, "cases = []\n", status="quarantined"
+        ),
     )
-    create_project(root, first_path, "duplicate")
-    create_project(root, second_path, "duplicate")
+    create_project(root, path, entries=())
+
+    assert validate_repository(root) == []
+
+
+def test_rejects_active_project_without_cases(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/no-cases"
+    write_inventory(root, inventory_entry("no-cases", path, "cases = []\n"))
+    create_project(root, path, entries=())
+
+    errors = validate_repository(root)
+
+    assert any("at least one case while active" in error for error in errors), errors
+
+
+def test_rejects_duplicate_project_ids(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/duplicate"
+    write_inventory(
+        root,
+        inventory_entry("duplicate", path) + inventory_entry("duplicate", path),
+    )
+    create_project(root, path)
 
     errors = validate_repository(root)
 
     assert any("Duplicate project id" in error for error in errors), errors
+
+
+def test_rejects_duplicate_case_ids(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/thermal-balance"
+    cases = case_entry("nominal", "src/first.gcl") + case_entry(
+        "nominal", "src/second.gcl", "evaluate"
+    )
+    write_inventory(root, inventory_entry("thermal-balance", path, cases))
+    create_project(root, path, ("src/first.gcl", "src/second.gcl"))
+
+    errors = validate_repository(root)
+
+    assert any("Duplicate case id" in error for error in errors), errors
 
 
 def test_rejects_traversal_path(tmp_path: Path) -> None:
@@ -84,50 +154,66 @@ def test_rejects_traversal_path(tmp_path: Path) -> None:
     assert any("exactly the form" in error for error in errors), errors
 
 
-def test_rejects_missing_project_manifests(tmp_path: Path) -> None:
+def test_rejects_project_path_that_does_not_match_id(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
-    path = "projects/thermal/missing-manifests"
-    write_inventory(root, inventory_entry("missing-manifests", path))
-    create_project(
-        root,
-        path,
-        "missing-manifests",
-        graphcal_manifest=False,
-        qa_manifest=False,
-    )
+    write_inventory(root, inventory_entry("power-budget", "projects/budget"))
+    create_project(root, "projects/budget")
+
+    errors = validate_repository(root)
+
+    assert any("must end with its id" in error for error in errors), errors
+
+
+def test_rejects_missing_graphcal_manifest(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/missing-manifest"
+    write_inventory(root, inventory_entry("missing-manifest", path))
+    create_project(root, path, graphcal_manifest=False)
 
     errors = validate_repository(root)
 
     assert any("Missing Graphcal project manifest" in error for error in errors), errors
-    assert any("Missing QA project manifest" in error for error in errors), errors
+
+
+def test_rejects_missing_case_entry_file(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/missing-entry"
+    write_inventory(root, inventory_entry("missing-entry", path))
+    create_project(root, path, entries=())
+
+    errors = validate_repository(root)
+
+    assert any("Case entry file is missing" in error for error in errors), errors
+
+
+def test_rejects_case_entry_traversal(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/entry-escape"
+    cases = case_entry(entry="../outside.gcl")
+    write_inventory(root, inventory_entry("entry-escape", path, cases))
+    create_project(root, path, entries=())
+
+    errors = validate_repository(root)
+
+    assert any(
+        "Case entry contains an invalid component" in error for error in errors
+    ), errors
 
 
 def test_rejects_undeclared_project_directory(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     write_inventory(root)
-    create_project(root, "projects/thermal/undeclared", "undeclared")
+    create_project(root, "projects/undeclared")
 
     errors = validate_repository(root)
 
     assert any("Undeclared project directory" in error for error in errors), errors
 
 
-def test_rejects_mismatched_qa_project_id(tmp_path: Path) -> None:
-    root = create_repository(tmp_path)
-    path = "projects/power/budget"
-    write_inventory(root, inventory_entry("power-budget", path))
-    create_project(root, path, "different-id")
-
-    errors = validate_repository(root)
-
-    assert any("project.id must match" in error for error in errors), errors
-
-
 def test_rejects_symlinked_project_that_escapes_repository(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
-    path = "projects/thermal/external"
+    path = "projects/external"
     write_inventory(root, inventory_entry("external", path))
-    (root / "projects" / "thermal").mkdir()
     external_directory = tmp_path / "external"
     external_directory.mkdir()
 
