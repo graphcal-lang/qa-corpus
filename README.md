@@ -47,7 +47,7 @@ Corpus structure is valid (0 declared projects).
 $ uv run -m pytest
 ```
 
-The validator parses `corpus.toml` and each `graphcal.toml`, then rejects duplicate project or case identifiers, missing or undeclared projects, missing case entry files, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
+The validator parses `corpus.toml` into strict Pydantic models and parses each `graphcal.toml`, then rejects invalid types, duplicate project or case identifiers, missing or undeclared projects, missing case entry files, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
 
 ## License
 

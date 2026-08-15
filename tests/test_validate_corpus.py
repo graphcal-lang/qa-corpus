@@ -71,6 +71,62 @@ def test_accepts_empty_inventory(tmp_path: Path) -> None:
     assert validate_repository(root) == []
 
 
+def test_rejects_schema_type_coercion(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    (root / "corpus.toml").write_text(
+        'schema_version = "1"\n\nprojects = []\n', encoding="utf-8"
+    )
+
+    errors = validate_repository(root)
+
+    assert any("schema_version" in error for error in errors), errors
+
+
+def test_rejects_project_field_type_coercion(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    (root / "corpus.toml").write_text(
+        "schema_version = 1\n\n"
+        "[[projects]]\n"
+        "id = 1\n"
+        'path = "projects/one"\n'
+        'status = "quarantined"\n'
+        "cases = []\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_repository(root)
+
+    assert any(
+        "projects.0.id" in error and "valid string" in error for error in errors
+    ), errors
+
+
+def test_rejects_unknown_root_fields(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    (root / "corpus.toml").write_text(
+        "schema_version = 1\nunexpected = true\nprojects = []\n", encoding="utf-8"
+    )
+
+    errors = validate_repository(root)
+
+    assert any(
+        "unexpected" in error and "not permitted" in error for error in errors
+    ), errors
+
+
+def test_accepts_deferred_project_and_case_metadata(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/metadata"
+    cases = case_entry() + 'expectation = "health-only"\n'
+    project = inventory_entry("metadata", path, cases).replace(
+        'status = "active"\n', 'status = "active"\ndomain = "systems"\n'
+    )
+    write_inventory(root, project)
+    create_project(root, path)
+
+    assert validate_repository(root) == []
+
+
 def test_accepts_project_without_separate_qa_manifest(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     path = "projects/rocket-stage-sizing"
@@ -128,7 +184,7 @@ def test_rejects_duplicate_project_ids(tmp_path: Path) -> None:
 
     errors = validate_repository(root)
 
-    assert any("Duplicate project id" in error for error in errors), errors
+    assert any("duplicate project id" in error for error in errors), errors
 
 
 def test_rejects_duplicate_case_ids(tmp_path: Path) -> None:
@@ -142,7 +198,7 @@ def test_rejects_duplicate_case_ids(tmp_path: Path) -> None:
 
     errors = validate_repository(root)
 
-    assert any("Duplicate case id" in error for error in errors), errors
+    assert any("duplicate case id" in error for error in errors), errors
 
 
 def test_rejects_traversal_path(tmp_path: Path) -> None:
@@ -196,7 +252,8 @@ def test_rejects_case_entry_traversal(tmp_path: Path) -> None:
     errors = validate_repository(root)
 
     assert any(
-        "Case entry contains an invalid component" in error for error in errors
+        "projects.0.cases.0.entry" in error and "invalid component" in error
+        for error in errors
     ), errors
 
 

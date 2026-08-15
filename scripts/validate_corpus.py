@@ -8,30 +8,146 @@ import os
 import re
 import sys
 import tomllib
-from collections import Counter
-from dataclasses import dataclass
+from collections.abc import Iterable
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Annotated, Any, Literal, Self
 
-SCHEMA_VERSION = 1
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    model_validator,
+)
+
 ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
-PROJECT_STATUSES = frozenset({"active", "quarantined"})
-CASE_OPERATIONS = frozenset({"check", "evaluate"})
 
 
-@dataclass(frozen=True)
-class CaseEntry:
-    identifier: str
-    entry: str
-    operation: str
+def _validate_stable_id(value: str) -> str:
+    if not ID_PATTERN.fullmatch(value):
+        raise ValueError("must be lowercase kebab-case")
+    return value
 
 
-@dataclass(frozen=True)
-class ProjectEntry:
-    identifier: str
-    path: str
-    status: str
-    cases: tuple[CaseEntry, ...]
+def _validate_project_path(value: str) -> str:
+    path = PurePosixPath(value)
+    if "\\" in value:
+        raise ValueError("must use POSIX separators")
+    if path.is_absolute():
+        raise ValueError("must be relative")
+    if path.as_posix() != value:
+        raise ValueError("must be canonical")
+    if len(path.parts) != 2 or not path.parts or path.parts[0] != "projects":
+        raise ValueError("must have exactly the form projects/<project-id>")
+    if any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("contains an invalid component")
+    if not ID_PATTERN.fullmatch(path.parts[1]):
+        raise ValueError("project directory must be lowercase kebab-case")
+    return value
+
+
+def _validate_case_entry_path(value: str) -> str:
+    path = PurePosixPath(value)
+    if "\\" in value:
+        raise ValueError("must use POSIX separators")
+    if path.is_absolute():
+        raise ValueError("must be relative")
+    if path.as_posix() != value:
+        raise ValueError("must be canonical")
+    if not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("contains an invalid component")
+    return value
+
+
+StableId = Annotated[str, AfterValidator(_validate_stable_id)]
+ProjectPath = Annotated[str, AfterValidator(_validate_project_path)]
+CaseEntryPath = Annotated[str, AfterValidator(_validate_case_entry_path)]
+
+
+class ProjectStatus(StrEnum):
+    ACTIVE = "active"
+    QUARANTINED = "quarantined"
+
+
+class CaseOperation(StrEnum):
+    CHECK = "check"
+    EVALUATE = "evaluate"
+
+
+class ExtensibleManifestModel(BaseModel):
+    """Strict bootstrap fields with forward-compatible additional metadata."""
+
+    model_config = ConfigDict(
+        strict=True,
+        extra="allow",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+
+class CaseEntry(ExtensibleManifestModel):
+    id: StableId
+    entry: CaseEntryPath
+    operation: CaseOperation = Field(strict=False)
+
+
+class ProjectEntry(ExtensibleManifestModel):
+    id: StableId
+    path: ProjectPath
+    status: ProjectStatus = Field(strict=False)
+    cases: list[CaseEntry]
+
+    @model_validator(mode="after")
+    def validate_project_invariants(self) -> Self:
+        if self.path != f"projects/{self.id}":
+            raise ValueError(f"project path must end with its id {self.id!r}")
+
+        duplicate_case_ids = _duplicates(case.id for case in self.cases)
+        if duplicate_case_ids:
+            duplicates = ", ".join(repr(value) for value in duplicate_case_ids)
+            raise ValueError(f"duplicate case id: {duplicates}")
+
+        if self.status is ProjectStatus.ACTIVE and not self.cases:
+            raise ValueError("must declare at least one case while active")
+
+        return self
+
+
+class CorpusManifest(BaseModel):
+    model_config = ConfigDict(
+        strict=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    schema_version: Literal[1]
+    projects: list[ProjectEntry]
+
+    @model_validator(mode="after")
+    def validate_inventory_uniqueness(self) -> Self:
+        duplicate_ids = _duplicates(project.id for project in self.projects)
+        duplicate_paths = _duplicates(project.path for project in self.projects)
+        errors = [
+            *(f"duplicate project id: {value!r}" for value in duplicate_ids),
+            *(f"duplicate project path: {value!r}" for value in duplicate_paths),
+        ]
+        if errors:
+            raise ValueError("; ".join(errors))
+        return self
+
+
+def _duplicates(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if value in seen:
+            duplicates.add(value)
+        else:
+            seen.add(value)
+    return sorted(duplicates)
 
 
 def _load_toml(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -51,167 +167,22 @@ def _load_toml(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]
         return None, [f"Cannot read {label} at {path}: {error}"]
 
 
-def _validate_schema_version(data: dict[str, Any], label: str) -> list[str]:
-    version = data.get("schema_version")
-    if type(version) is not int or version != SCHEMA_VERSION:
-        return [
-            f"{label} schema_version must be integer {SCHEMA_VERSION}, got {version!r}"
-        ]
-    return []
+def _format_validation_error(error: ValidationError) -> list[str]:
+    def format_issue(issue: dict[str, Any]) -> str:
+        location = ".".join(str(part) for part in issue["loc"])
+        label = f"corpus.toml {location}" if location else "corpus.toml"
+        return f"{label}: {issue['msg']}"
+
+    return [format_issue(issue) for issue in error.errors(include_url=False)]
 
 
-def _validate_project_path(raw_path: str, identifier: str | None = None) -> list[str]:
-    path = PurePosixPath(raw_path)
-    errors: list[str] = []
-
-    if "\\" in raw_path:
-        errors.append(f"Project path must use POSIX separators: {raw_path!r}")
-    if path.is_absolute():
-        errors.append(f"Project path must be relative: {raw_path!r}")
-    if path.as_posix() != raw_path:
-        errors.append(f"Project path must be canonical: {raw_path!r}")
-    if len(path.parts) != 2 or not path.parts or path.parts[0] != "projects":
-        errors.append(
-            f"Project path must have exactly the form projects/<project-id>: {raw_path!r}"
-        )
-    if any(part in {"", ".", ".."} for part in path.parts):
-        errors.append(f"Project path contains an invalid component: {raw_path!r}")
-    elif any(not ID_PATTERN.fullmatch(part) for part in path.parts[1:]):
-        errors.append(
-            f"Project path components must be lowercase kebab-case: {raw_path!r}"
-        )
-    if len(path.parts) == 2 and identifier is not None and path.parts[1] != identifier:
-        errors.append(f"Project path must end with its id {identifier!r}: {raw_path!r}")
-
-    return errors
-
-
-def _validate_case_entry_path(raw_path: str) -> list[str]:
-    path = PurePosixPath(raw_path)
-    errors: list[str] = []
-
-    if "\\" in raw_path:
-        errors.append(f"Case entry must use POSIX separators: {raw_path!r}")
-    if path.is_absolute():
-        errors.append(f"Case entry must be relative: {raw_path!r}")
-    if path.as_posix() != raw_path:
-        errors.append(f"Case entry must be canonical: {raw_path!r}")
-    if not path.parts or any(part in {"", ".", ".."} for part in path.parts):
-        errors.append(f"Case entry contains an invalid component: {raw_path!r}")
-
-    return errors
-
-
-def _parse_cases(
-    raw_cases: Any, project_label: str, status: Any
-) -> tuple[tuple[CaseEntry, ...], list[str]]:
-    if not isinstance(raw_cases, list):
-        return (), [f"{project_label}.cases must be an array of tables"]
-
-    errors: list[str] = []
-    cases: list[CaseEntry] = []
-    for index, raw_case in enumerate(raw_cases):
-        label = f"{project_label}.cases[{index}]"
-        if not isinstance(raw_case, dict):
-            errors.append(f"{label} must be a table")
-            continue
-
-        identifier = raw_case.get("id")
-        entry = raw_case.get("entry")
-        operation = raw_case.get("operation")
-
-        if not isinstance(identifier, str):
-            errors.append(f"{label}.id must be a string")
-        elif not ID_PATTERN.fullmatch(identifier):
-            errors.append(f"{label}.id must be lowercase kebab-case: {identifier!r}")
-
-        if not isinstance(entry, str):
-            errors.append(f"{label}.entry must be a string")
-        else:
-            errors.extend(_validate_case_entry_path(entry))
-
-        if not isinstance(operation, str):
-            errors.append(f"{label}.operation must be a string")
-        elif operation not in CASE_OPERATIONS:
-            allowed = ", ".join(sorted(CASE_OPERATIONS))
-            errors.append(f"{label}.operation must be one of {allowed}: {operation!r}")
-
-        if all(isinstance(value, str) for value in (identifier, entry, operation)):
-            cases.append(CaseEntry(identifier, entry, operation))
-
-    duplicate_ids = sorted(
-        identifier
-        for identifier, count in Counter(case.identifier for case in cases).items()
-        if count > 1
-    )
-    errors.extend(
-        f"Duplicate case id in {project_label}: {identifier!r}"
-        for identifier in duplicate_ids
-    )
-    if status == "active" and not raw_cases:
-        errors.append(f"{project_label} must declare at least one case while active")
-
-    return tuple(cases), errors
-
-
-def _parse_inventory(data: dict[str, Any]) -> tuple[list[ProjectEntry], list[str]]:
-    errors = _validate_schema_version(data, "corpus.toml")
-    raw_projects = data.get("projects")
-    if not isinstance(raw_projects, list):
-        return [], errors + ["corpus.toml projects must be an array of tables"]
-
-    entries: list[ProjectEntry] = []
-    for index, raw_entry in enumerate(raw_projects):
-        label = f"corpus.toml projects[{index}]"
-        if not isinstance(raw_entry, dict):
-            errors.append(f"{label} must be a table")
-            continue
-
-        identifier = raw_entry.get("id")
-        path = raw_entry.get("path")
-        status = raw_entry.get("status")
-        cases, case_errors = _parse_cases(raw_entry.get("cases"), label, status)
-        errors.extend(case_errors)
-
-        if not isinstance(identifier, str):
-            errors.append(f"{label}.id must be a string")
-        elif not ID_PATTERN.fullmatch(identifier):
-            errors.append(f"{label}.id must be lowercase kebab-case: {identifier!r}")
-
-        if not isinstance(path, str):
-            errors.append(f"{label}.path must be a string")
-        else:
-            errors.extend(
-                _validate_project_path(
-                    path, identifier if isinstance(identifier, str) else None
-                )
-            )
-
-        if not isinstance(status, str):
-            errors.append(f"{label}.status must be a string")
-        elif status not in PROJECT_STATUSES:
-            allowed = ", ".join(sorted(PROJECT_STATUSES))
-            errors.append(f"{label}.status must be one of {allowed}: {status!r}")
-
-        if all(isinstance(value, str) for value in (identifier, path, status)):
-            entries.append(ProjectEntry(identifier, path, status, cases))
-
-    duplicate_ids = sorted(
-        identifier
-        for identifier, count in Counter(entry.identifier for entry in entries).items()
-        if count > 1
-    )
-    duplicate_paths = sorted(
-        path
-        for path, count in Counter(entry.path for entry in entries).items()
-        if count > 1
-    )
-    errors.extend(
-        f"Duplicate project id: {identifier!r}" for identifier in duplicate_ids
-    )
-    errors.extend(f"Duplicate project path: {path!r}" for path in duplicate_paths)
-
-    return entries, errors
+def _parse_inventory(
+    data: dict[str, Any],
+) -> tuple[CorpusManifest | None, list[str]]:
+    try:
+        return CorpusManifest.model_validate(data), []
+    except ValidationError as error:
+        return None, _format_validation_error(error)
 
 
 def _find_symlinks(projects_root: Path) -> list[Path]:
@@ -250,16 +221,12 @@ def _is_within(path: Path, root: Path) -> bool:
         return False
 
 
-def _validate_declared_project(root: Path, entry: ProjectEntry) -> list[str]:
-    path_errors = _validate_project_path(entry.path, entry.identifier)
-    if path_errors:
-        return []
-
-    project_root = (root / Path(*PurePosixPath(entry.path).parts)).resolve()
+def _validate_declared_project(root: Path, project: ProjectEntry) -> list[str]:
+    project_root = (root / Path(*PurePosixPath(project.path).parts)).resolve()
     if not _is_within(project_root, root):
-        return [f"Project path escapes the repository: {entry.path!r}"]
+        return [f"Project path escapes the repository: {project.path!r}"]
     if not project_root.is_dir():
-        return [f"Declared project directory is missing: {entry.path}"]
+        return [f"Declared project directory is missing: {project.path}"]
 
     errors: list[str] = []
     _, graphcal_errors = _load_toml(
@@ -267,11 +234,9 @@ def _validate_declared_project(root: Path, entry: ProjectEntry) -> list[str]:
     )
     errors.extend(graphcal_errors)
 
-    for case in entry.cases:
-        if _validate_case_entry_path(case.entry):
-            continue
+    for case in project.cases:
         case_path = (project_root / Path(*PurePosixPath(case.entry).parts)).resolve()
-        case_label = f"{entry.identifier}/{case.identifier}"
+        case_label = f"{project.id}/{case.id}"
         if not _is_within(case_path, project_root):
             errors.append(
                 f"Case entry escapes its project for {case_label}: {case.entry!r}"
@@ -289,8 +254,10 @@ def validate_repository(root: Path) -> list[str]:
     if corpus_data is None:
         return errors
 
-    entries, inventory_errors = _parse_inventory(corpus_data)
+    manifest, inventory_errors = _parse_inventory(corpus_data)
     errors.extend(inventory_errors)
+    if manifest is None:
+        return errors
 
     projects_root = root / "projects"
     if projects_root.is_symlink():
@@ -308,17 +275,15 @@ def validate_repository(root: Path) -> list[str]:
         for path in _find_symlinks(projects_root)
     )
 
-    valid_declared_paths = {
-        entry.path for entry in entries if not _validate_project_path(entry.path)
-    }
+    declared_paths = {project.path for project in manifest.projects}
     discovered_paths = _discover_project_directories(projects_root)
     errors.extend(
         f"Undeclared project directory: {path}"
-        for path in sorted(discovered_paths - valid_declared_paths)
+        for path in sorted(discovered_paths - declared_paths)
     )
 
-    for entry in entries:
-        errors.extend(_validate_declared_project(root, entry))
+    for project in manifest.projects:
+        errors.extend(_validate_declared_project(root, project))
 
     return errors
 

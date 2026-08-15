@@ -28,7 +28,7 @@ entry = "src/contingency.gcl"
 operation = "evaluate"
 ```
 
-The bootstrap validator requires and interprets `schema_version`, each project's `id`, `path`, `status`, and `cases`, and each case's `id`, `entry`, and `operation`. Descriptive, provenance, expectation, assertion, comparison-profile, and timeout fields also belong in `corpus.toml`, but their typed representation will be finalized with the trusted runner. Large expected outputs and reference calculations remain files inside the project and are referenced by relative path.
+The bootstrap validator loads these fields into strict Pydantic models without scalar coercion. It requires and interprets `schema_version`, each project's `id`, `path`, `status`, and `cases`, and each case's `id`, `entry`, and `operation`. Unknown root fields are rejected. Additional project and case fields are temporarily allowed so descriptive, provenance, expectation, assertion, comparison-profile, and timeout metadata can be finalized with the trusted runner; once that schema is complete, these models should reject unknown fields too. Large expected outputs and reference calculations remain files inside the project and are referenced by relative path.
 
 ### Project rules
 
