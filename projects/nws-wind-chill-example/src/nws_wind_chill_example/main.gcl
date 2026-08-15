@@ -1,0 +1,9 @@
+const unit mph: Velocity = 0.44704 m/s;
+
+param air_temperature_fahrenheit_value: Dimensionless = 0.0;
+param wind_speed: Velocity = 15.0 mph;
+
+node wind_speed_mph_value: Dimensionless = @wind_speed / 1.0 mph;
+node wind_speed_factor: Dimensionless = @wind_speed_mph_value ^ 0.16;
+node wind_chill_fahrenheit_value: Dimensionless = 35.74 + 0.6215 * @air_temperature_fahrenheit_value - 35.75 * @wind_speed_factor + 0.4275 * @air_temperature_fahrenheit_value * @wind_speed_factor;
+node reported_wind_chill_fahrenheit_value: Dimensionless = round(@wind_chill_fahrenheit_value);

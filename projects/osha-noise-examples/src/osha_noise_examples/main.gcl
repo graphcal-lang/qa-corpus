@@ -1,0 +1,19 @@
+const unit ft: Length = 0.3048 m;
+
+param initial_sound_level_dba_value: Dimensionless = 120.0;
+param initial_distance: Length = 50.0 ft;
+param target_distance: Length = 80.0 ft;
+param noise_dose_percent_value: Dimensionless = 183.0;
+
+const node twa_reporting_increment: Dimensionless = 0.1;
+
+node target_sound_level_dba_value: Dimensionless = @initial_sound_level_dba_value + 20.0 * log10(
+    @initial_distance / @target_distance
+);
+node reported_target_sound_level_dba_value: Dimensionless = round(@target_sound_level_dba_value);
+node eight_hour_twa_dba_value: Dimensionless = 16.61 * log10(
+    @noise_dose_percent_value / 100.0
+) + 90.0;
+node reported_eight_hour_twa_dba_value: Dimensionless = round(
+    @eight_hour_twa_dba_value / @twa_reporting_increment
+) * @twa_reporting_increment;
