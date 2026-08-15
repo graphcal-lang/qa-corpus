@@ -4,11 +4,12 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "pydantic>=2.13.4",
+    "typer>=0.27.1",
 ]
 
 [project.scripts]
-test-graphcal = "qa_corpus.test_cli:main"
-validate-corpus = "qa_corpus.cli:main"
+test-graphcal = "qa_corpus.test_cli:app"
+validate-corpus = "qa_corpus.cli:app"
 
 [dependency-groups]
 dev = [

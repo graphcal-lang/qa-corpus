@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 import stat
 from pathlib import Path
+from typing import Any
 
-from qa_corpus.test_cli import main
+from typer.testing import CliRunner
+
+from qa_corpus.test_cli import app
+
+runner = CliRunner()
 
 
 def create_project(root: Path, identifier: str, *, entry: str | None) -> None:
@@ -50,13 +55,13 @@ def create_executable(tmp_path: Path, body: str) -> Path:
     return executable
 
 
-def read_report(capsys) -> dict[str, object]:
-    captured = capsys.readouterr()
-    assert captured.err == ""
-    return json.loads(captured.out)
+def invoke(executable: str | Path, root: Path) -> tuple[int, dict[str, Any]]:
+    result = runner.invoke(app, [str(executable), "--root", str(root)])
+    assert result.stderr == ""
+    return result.exit_code, json.loads(result.stdout)
 
 
-def test_runs_standard_pipeline_for_active_cases(tmp_path: Path, capsys) -> None:
+def test_runs_standard_pipeline_for_active_cases(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     executable = create_executable(
         tmp_path,
@@ -88,8 +93,7 @@ esac
 """,
     )
 
-    exit_code = main([str(executable), "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke(executable, root)
 
     assert exit_code == 0
     assert report["status"] == "passed"
@@ -101,7 +105,7 @@ esac
     assert case["stages"]["eval"]["result"] == {"node": {"answer": 42}}
 
 
-def test_skips_eval_when_check_fails(tmp_path: Path, capsys) -> None:
+def test_skips_eval_when_check_fails(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     executable = create_executable(
         tmp_path,
@@ -115,8 +119,7 @@ esac
 """,
     )
 
-    exit_code = main([str(executable), "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke(executable, root)
 
     assert exit_code == 1
     assert report["summary"] == {"total": 1, "passed": 0, "failed": 1}
@@ -127,7 +130,7 @@ esac
 
 
 def test_fails_case_when_formatting_fails_but_runs_other_stages(
-    tmp_path: Path, capsys
+    tmp_path: Path,
 ) -> None:
     root = create_repository(tmp_path)
     executable = create_executable(
@@ -142,8 +145,7 @@ esac
 """,
     )
 
-    exit_code = main([str(executable), "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke(executable, root)
 
     assert exit_code == 1
     stages = report["cases"][0]["stages"]
@@ -154,7 +156,7 @@ esac
     assert stages["eval"]["result"] is None
 
 
-def test_rejects_non_json_eval_stdout(tmp_path: Path, capsys) -> None:
+def test_rejects_non_json_eval_stdout(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     executable = create_executable(
         tmp_path,
@@ -168,8 +170,7 @@ esac
 """,
     )
 
-    exit_code = main([str(executable), "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke(executable, root)
 
     assert exit_code == 1
     evaluation = report["cases"][0]["stages"]["eval"]
@@ -178,7 +179,7 @@ esac
 
 
 def test_reports_structural_errors_as_json_without_execution(
-    tmp_path: Path, capsys
+    tmp_path: Path,
 ) -> None:
     root = tmp_path / "invalid-repo"
     root.mkdir()
@@ -188,8 +189,7 @@ def test_reports_structural_errors_as_json_without_execution(
     marker = tmp_path / "executed"
     executable = create_executable(tmp_path, f"touch '{marker}'")
 
-    exit_code = main([str(executable), "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke(executable, root)
 
     assert exit_code == 1
     assert report["status"] == "failed"
@@ -198,11 +198,10 @@ def test_reports_structural_errors_as_json_without_execution(
     assert not marker.exists()
 
 
-def test_reports_missing_executable_as_json(tmp_path: Path, capsys) -> None:
+def test_reports_missing_executable_as_json(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
 
-    exit_code = main(["definitely-not-a-graphcal-command", "--root", str(root)])
-    report = read_report(capsys)
+    exit_code, report = invoke("definitely-not-a-graphcal-command", root)
 
     assert exit_code == 1
     assert report["cases"] == []
