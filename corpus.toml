@@ -1,5 +1,22 @@
 # Graphcal QA corpus manifest. See schema/README.md.
 schema_version = 1
 
-# Replace this empty array with [[projects]] tables as projects are added.
-projects = []
+[[projects]]
+id = "minimal-mass-budget"
+path = "projects/minimal-mass-budget"
+status = "active"
+domain = "systems-engineering"
+origin = "original-synthetic"
+purpose = "Exercise corpus discovery, project loading, checking, and evaluation."
+
+[[projects.cases]]
+id = "nominal-check"
+entry = "src/minimal_mass_budget/main.gcl"
+operation = "check"
+expectation_class = "health-only"
+
+[[projects.cases]]
+id = "nominal-evaluate"
+entry = "src/minimal_mass_budget/main.gcl"
+operation = "evaluate"
+expectation_class = "health-only"
