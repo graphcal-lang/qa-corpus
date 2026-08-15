@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_VERSION: "0.12.x"
+  UV_LOCKED: "1"
+  UV_NO_SYNC: "1"
+
 concurrency:
   group: structural-validation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,15 +30,22 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install uv and Python
+      - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.5"
-          python-version: "3.14"
+          version: ${{ env.UV_VERSION }}
           enable-cache: false
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install the project
+        run: uv sync
+
       - name: Test structural validator
-        run: uv run --locked -m pytest
+        run: uv run -m pytest
 
       - name: Validate corpus structure
-        run: uv run --locked validate-corpus
+        run: uv run validate-corpus
