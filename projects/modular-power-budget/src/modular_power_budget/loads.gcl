@@ -1,0 +1,2 @@
+param avionics_load: Power = 200.0 W;
+param thermal_control_load: Power = 300.0 W;

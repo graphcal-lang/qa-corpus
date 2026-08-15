@@ -1,0 +1,8 @@
+include modular_power_budget.loads().{ avionics_load, thermal_control_load };
+
+param conversion_efficiency: Dimensionless = 0.8;
+const node reserve_factor: Dimensionless = 1.25;
+
+node total_load: Power = @avionics_load + @thermal_control_load;
+node required_source_power: Power = @total_load / @conversion_efficiency;
+node design_source_power: Power = @required_source_power * @reserve_factor;
