@@ -1,5 +1,9 @@
 # Independent ideal rocket equation calculation
 
+## Candidate generation
+
+This source-backed candidate was prepared by an AI coding agent at the repository maintainer's direction. The agent selected the cited public formulas, wrote an original Graphcal reproduction, and performed the separate Python calculation below. It does not derive from a private project. Human source, privacy, calculation, and promotion review remain pull-request responsibilities.
+
 ## Source
 
 NASA Glenn Research Center, “Ideal Rocket Equation,” *Beginner's Guide to Aeronautics*, https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/, accessed 2026-08-15.
