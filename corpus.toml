@@ -1,0 +1,5 @@
+# Graphcal QA corpus manifest. See schema/README.md.
+schema_version = 1
+
+# Replace this empty array with [[projects]] tables as projects are added.
+projects = []
