@@ -1,14 +1,14 @@
-# Independent FAO-56 reference-evapotranspiration calculation
+# FAO-56 reference-evapotranspiration source evidence
 
 ## Candidate generation
 
-This source-backed candidate was prepared by an AI coding agent at the repository maintainer's direction. The agent selected the cited public worked example, wrote an original Graphcal reproduction from its formula and rounded intermediate values, and performed the separate calculation below. It does not derive from a private project. Human source, privacy, calculation, and promotion review remain pull-request responsibilities.
+This source-backed candidate was prepared by an AI coding agent at the repository maintainer's direction from the cited public worked example. It does not derive from private material. Human source, privacy, adaptation, and promotion review remain pull-request responsibilities.
 
-## Source
+## Source and published expected values
 
 R. G. Allen, L. S. Pereira, D. Raes, and M. Smith, *Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements*, FAO Irrigation and Drainage Paper 56, Food and Agriculture Organization of the United Nations, Rome, 1998, Chapter 4, Equation 6 and Example 18, https://www.fao.org/4/x0490e/x0490e08.htm, accessed 2026-08-15.
 
-For a daily time step, the FAO Penman–Monteith equation is
+For a daily time step, the source gives the FAO Penman–Monteith equation
 
 \[
 ET_0 =
@@ -20,65 +20,41 @@ ET_0 =
 }.
 \]
 
-Under the equation's stated conventional units, the result is millimetres per day. Example 18 reports 3.88 mm/day before presenting the result as 3.9 mm/day.
+Example 18 publishes the rounded intermediate inputs reproduced by the project:
 
-## Reproduced inputs and adaptations
+- \(T=16.9\ ^\circ\mathrm{C}\);
+- \(u_2=2.078\ \mathrm{m/s}\);
+- \(\Delta=0.122\ \mathrm{kPa/^{\circ}C}\);
+- \(\gamma=0.0666\ \mathrm{kPa/^{\circ}C}\);
+- \(e_s-e_a=0.589\ \mathrm{kPa}\);
+- \(R_n=13.28\ \mathrm{MJ/(m^2\,day)}\);
+- \(G=0\ \mathrm{MJ/(m^2\,day)}\).
 
-This project begins from the rounded intermediate values printed in Example 18:
+The worked example then reports:
 
-- mean air temperature \(T=16.9\ ^\circ\mathrm{C}\);
-- wind speed at 2 m \(u_2=2.078\ \mathrm{m/s}\);
-- slope of the vapour-pressure curve \(\Delta=0.122\ \mathrm{kPa/K}\);
-- psychrometric constant \(\gamma=0.0666\ \mathrm{kPa/K}\);
-- vapour-pressure deficit \(e_s-e_a=0.589\ \mathrm{kPa}\);
-- net radiation \(R_n=13.28\ \mathrm{MJ/(m^2\,day)}\);
-- daily soil heat flux \(G=0\ \mathrm{MJ/(m^2\,day)}\).
+- radiation component: 2.81 mm/day;
+- aerodynamic component: 1.07 mm/day;
+- Equation 6 total before final presentation: 3.88 mm/day;
+- final reported reference evapotranspiration: 3.9 mm/day.
 
-The example's intermediate values are already rounded, so this is a reproduction of its final Equation 6 calculation, not a recomputation from the raw weather observations.
+Those four source-reported values—not locally calculated higher-precision values—are the manifest's expected values.
 
-Graphcal intentionally has no affine Celsius unit. The model stores 16.9 °C as 290.05 K and explicitly computes the Celsius numeric value as \((T_K-273.15\,K)/(1\,K)\) before using the empirical \(T+273\) term. Temperature differences in \(\Delta\) and \(\gamma\) use kelvin because one kelvin and one degree Celsius have the same interval size.
+## Adaptation and source-to-assertion mapping
 
-The empirical equation combines values expressed in prescribed conventional units. The Graphcal model makes each normalization explicit, computes the conventional numerical terms dimensionlessly, and attaches the physical output unit mm/day.
+Graphcal intentionally has no affine Celsius unit. The project stores 16.9 °C as 290.05 K and explicitly obtains the conventional Celsius numeric value as \((T_K-273.15\,K)/(1\,K)\) before using the empirical \(T+273\) term. One degree Celsius and one kelvin have the same interval size, so \(\Delta\) and \(\gamma\) use kPa/K.
 
-## Independent calculation
+The empirical equation requires values normalized to its prescribed conventional units. The model makes those normalizations explicit, attaches mm/day to the output, and adds reporting nodes at the precision printed by Example 18.
 
-Using the published rounded values with ordinary binary64 arithmetic, independently of Graphcal:
+The manifest maps the published outputs as follows:
 
-\[
-D = 0.122 + 0.0666(1+0.34(2.078))
-  = 0.23565423200000002.
-\]
+- `/node/reported_radiation_component/display_value` = `2.81`;
+- `/node/reported_aerodynamic_component/display_value` = `1.07`;
+- `/node/reported_equation_reference_evapotranspiration/display_value` = `3.88`;
+- `/node/reported_reference_evapotranspiration/display_value` = `3.9`;
+- exact unit assertions require `mm_per_day`.
 
-Radiation component:
-
-\[
-ET_{rad} = \frac{0.408(13.28)(0.122)}{D}
-         = 2.805064328316411\ \mathrm{mm/day}.
-\]
-
-Aerodynamic component:
-
-\[
-ET_{aero} =
-\frac{0.0666\,[900/(16.9+273)](2.078)(0.589)}{D}
-=1.073875953888906\ \mathrm{mm/day}.
-\]
-
-Therefore:
-
-\[
-ET_0=3.878940282205317\ \mathrm{mm/day},
-\]
-
-which rounds to 3.9 mm/day and agrees with the reported Example 18 result. Using \(1\ \mathrm{mm/day}=10^{-3}/86400\ \mathrm{m/s}\), the corresponding SI values are:
-
-- radiation component: 3.2466022318476985 × 10⁻⁸ m/s;
-- aerodynamic component: 1.2429119836677152 × 10⁻⁸ m/s;
-- unrounded total: 4.489514215515413 × 10⁻⁸ m/s;
-- reported 3.9 mm/day: 4.5138888888888884 × 10⁻⁸ m/s.
-
-The manifest checks these SI values with narrowly scoped tolerances and checks the displayed mm/day unit exactly.
+The unrounded internal nodes remain useful corpus coverage, but they are deliberately not reference-backed assertions because FAO does not report those extra digits.
 
 ## Licensing and adaptation
 
-Only the equation and the small set of numerical facts needed to reproduce the cited worked example are used. No FAO prose, figures, calculation-sheet layout, software, or data files are copied. The Graphcal implementation and this explanation are original corpus content under the repository license; the FAO publication is cited for provenance and is not relicensed here.
+Only the equation and the small set of numerical facts needed for the cited worked result are reimplemented. No FAO prose, figures, calculation-sheet layout, software, or data files are copied. The Graphcal source and this evidence record are original corpus content under the repository license; the FAO publication is cited for provenance and is not relicensed here.

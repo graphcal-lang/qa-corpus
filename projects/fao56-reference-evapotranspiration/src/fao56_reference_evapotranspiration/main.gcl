@@ -12,7 +12,8 @@ param vapour_pressure_deficit: Pressure = 0.589 kPa;
 param net_radiation_flux: Power / Area = 13.28 MJ_per_square_metre_day;
 param soil_heat_flux: Power / Area = 0.0 MJ_per_square_metre_day;
 
-const node reporting_increment: Velocity = 0.1 mm_per_day;
+const node equation_reporting_increment: Velocity = 0.01 mm_per_day;
+const node final_reporting_increment: Velocity = 0.1 mm_per_day;
 
 node mean_air_temperature_celsius_value: Dimensionless = (@mean_air_temperature - 273.15 K) / 1.0 K;
 node normalized_wind_speed: Dimensionless = @wind_speed_2m / 1.0 m/s;
@@ -31,6 +32,15 @@ node aerodynamic_component: Velocity = @normalized_psychrometric_constant * (
     900.0 / (@mean_air_temperature_celsius_value + 273.0)
 ) * @normalized_wind_speed * @normalized_vapour_pressure_deficit / @denominator * 1.0 mm_per_day -> mm_per_day;
 node reference_evapotranspiration: Velocity = @radiation_component + @aerodynamic_component -> mm_per_day;
+node reported_radiation_component: Velocity = round(
+    @radiation_component / @equation_reporting_increment
+) * @equation_reporting_increment -> mm_per_day;
+node reported_aerodynamic_component: Velocity = round(
+    @aerodynamic_component / @equation_reporting_increment
+) * @equation_reporting_increment -> mm_per_day;
+node reported_equation_reference_evapotranspiration: Velocity = round(
+    @reference_evapotranspiration / @equation_reporting_increment
+) * @equation_reporting_increment -> mm_per_day;
 node reported_reference_evapotranspiration: Velocity = round(
-    @reference_evapotranspiration / @reporting_increment
-) * @reporting_increment -> mm_per_day;
+    @reference_evapotranspiration / @final_reporting_increment
+) * @final_reporting_increment -> mm_per_day;

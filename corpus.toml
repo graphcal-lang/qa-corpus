@@ -60,79 +60,42 @@ id = "nasa-lift-sweep"
 path = "projects/nasa-lift-sweep"
 status = "active"
 domain = "aerodynamics"
-origin = "source-backed"
-purpose = "Verify dynamic pressure, lift, and inverse speed against NASA's lift equation."
+origin = "original-synthetic"
+purpose = "Detect semantic drift in a source-informed lift sweep with original inputs."
 
 [[projects.cases]]
 id = "three-flight-points"
 entry = "src/nasa_lift_sweep/main.gcl"
 
 [projects.cases.expectation]
-kind = "reference-backed"
-evidence = "reference/calculation.md"
+kind = "stability-baseline"
+expected = "expected/three-flight-points.json"
+evidence = "reference/baseline.md"
 
-[[projects.cases.expectation.assertions]]
-pointer = "/node/cruise_dynamic_pressure/si_value"
-expected = 980.0
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/cruise_lift/si_value"
-expected = 12700.8
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/maximum_lift/si_value"
-expected = 19845.0
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/level_flight_speed/si_value"
-expected = 38.88078956798696
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/maximum_lift/unit"
-expected = "kN"
+[projects.cases.expectation.comparison]
+mode = "semantic-json"
+tolerances = []
 
 [[projects]]
 id = "pvwatts-hourly-dc-energy"
 path = "projects/pvwatts-hourly-dc-energy"
 status = "active"
 domain = "solar-energy"
-origin = "source-backed"
-purpose = "Verify an hourly DC-energy calculation against the PVWatts Version 5 module model."
+origin = "original-synthetic"
+purpose = "Detect semantic drift in a source-informed PVWatts profile with original inputs."
 
 [[projects.cases]]
 id = "four-hour-profile"
 entry = "src/pvwatts_hourly_dc_energy/main.gcl"
 
 [projects.cases.expectation]
-kind = "reference-backed"
-evidence = "reference/calculation.md"
+kind = "stability-baseline"
+expected = "expected/four-hour-profile.json"
+evidence = "reference/baseline.md"
 
-[[projects.cases.expectation.assertions]]
-pointer = "/node/low_sun_dc_power/si_value"
-expected = 1040.0
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/peak_dc_power/si_value"
-expected = 4600.0
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/total_dc_energy/si_value"
-expected = 38016000.0
-absolute_tolerance = 1e-6
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/peak_dc_power/unit"
-expected = "kW"
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/total_dc_energy/unit"
-expected = "kWh"
+[projects.cases.expectation.comparison]
+mode = "semantic-json"
+tolerances = []
 
 [[projects]]
 id = "fao56-reference-evapotranspiration"
@@ -151,25 +114,84 @@ kind = "reference-backed"
 evidence = "reference/calculation.md"
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/radiation_component/si_value"
-expected = 3.2466022318476985e-8
-absolute_tolerance = 1e-18
+pointer = "/node/reported_radiation_component/display_value"
+expected = 2.81
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/aerodynamic_component/si_value"
-expected = 1.2429119836677152e-8
-absolute_tolerance = 1e-18
+pointer = "/node/reported_aerodynamic_component/display_value"
+expected = 1.07
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/reference_evapotranspiration/si_value"
-expected = 4.489514215515413e-8
-absolute_tolerance = 1e-18
+pointer = "/node/reported_equation_reference_evapotranspiration/display_value"
+expected = 3.88
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/reported_reference_evapotranspiration/si_value"
-expected = 4.5138888888888884e-8
-absolute_tolerance = 1e-18
+pointer = "/node/reported_reference_evapotranspiration/display_value"
+expected = 3.9
+absolute_tolerance = 1e-12
 
 [[projects.cases.expectation.assertions]]
 pointer = "/node/reported_reference_evapotranspiration/unit"
 expected = "mm_per_day"
+
+[[projects]]
+id = "nws-heat-index-examples"
+path = "projects/nws-heat-index-examples"
+status = "active"
+domain = "weather-safety"
+origin = "source-backed"
+purpose = "Reproduce two heat-index values explicitly reported by the National Weather Service."
+
+[[projects.cases]]
+id = "published-examples"
+entry = "src/nws_heat_index_examples/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/humid_example_heat_index_fahrenheit_value/si_value"
+expected = 124.0
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/dry_example_heat_index_fahrenheit_value/si_value"
+expected = 96.0
+
+[[projects]]
+id = "epa-chp-savings-example"
+path = "projects/epa-chp-savings-example"
+status = "active"
+domain = "energy-and-emissions"
+origin = "source-backed"
+purpose = "Reproduce fuel and carbon-dioxide savings reported in a U.S. EPA CHP example."
+
+[[projects.cases]]
+id = "appendix-a"
+entry = "src/epa_chp_savings_example/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_fuel_savings/display_value"
+expected = 115546.0
+absolute_tolerance = 1e-6
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_fuel_savings/unit"
+expected = "MMBtu"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_fuel_savings_percent/si_value"
+expected = 21.0
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_co2_savings/display_value"
+expected = 18065.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_co2_savings/unit"
+expected = "short_ton"

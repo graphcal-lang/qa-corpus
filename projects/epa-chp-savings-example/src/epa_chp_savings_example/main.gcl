@@ -1,0 +1,17 @@
+const unit Btu_IT: Energy = 1055.056 J;
+const unit MMBtu: Energy = 1000000.0 Btu_IT;
+const unit short_ton: Mass = 907.18474 kg;
+
+param displaced_thermal_fuel_use: Energy = 257964.0 MMBtu;
+param displaced_grid_fuel_use: Energy = 300437.0 MMBtu;
+param chp_fuel_use: Energy = 442855.0 MMBtu;
+param displaced_thermal_co2: Mass = 15078.0 short_ton;
+param displaced_grid_co2: Mass = 28872.0 short_ton;
+param chp_co2: Mass = 25885.0 short_ton;
+
+node conventional_fuel_use: Energy = @displaced_thermal_fuel_use + @displaced_grid_fuel_use;
+node total_fuel_savings: Energy = @conventional_fuel_use - @chp_fuel_use -> MMBtu;
+node reported_fuel_savings_percent: Dimensionless = round(
+    @total_fuel_savings / @conventional_fuel_use * 100.0
+);
+node total_co2_savings: Mass = @displaced_thermal_co2 + @displaced_grid_co2 - @chp_co2 -> short_ton;

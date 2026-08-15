@@ -1,5 +1,5 @@
 # NASA lift-equation sweep
 
-This source-backed reproduction asks: **What dynamic pressure and lift result at three low-speed flight points, and what speed produces a required lift?**
+This source-informed synthetic project asks: **What dynamic pressure and lift result at three low-speed flight points, and what speed produces a required lift?**
 
-It applies the lift and dynamic-pressure equations presented by NASA Glenn Research Center to a fixed set of original, illustrative inputs. The lift coefficient is held constant, so this is a point calculation rather than an aerodynamic prediction across changing Reynolds or Mach number. The asserted values and independent calculation are documented in [`reference/calculation.md`](reference/calculation.md).
+It applies NASA's lift and dynamic-pressure equations to original illustrative inputs. NASA does not publish expected values for this scenario, so the checked-in output is a stability baseline rather than an aerodynamic correctness claim. Its generation and determinism evidence are documented in [`reference/baseline.md`](reference/baseline.md).
