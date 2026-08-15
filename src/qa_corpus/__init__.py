@@ -1,4 +1,4 @@
-"""Graphcal QA corpus structural validation."""
+"""Graphcal QA corpus validation and executable testing."""
 
 from qa_corpus.repository import validate_repository
 

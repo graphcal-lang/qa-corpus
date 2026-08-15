@@ -1,6 +1,6 @@
 # Bootstrap manifest schema
 
-This document defines schema version 1 for structural validation. `corpus.toml` is the single machine-readable source for the project inventory and QA cases. The trusted Graphcal runner will extend the typed case and assertion contract in a later phase; fields not needed for bootstrap validation are intentionally deferred.
+This document defines schema version 1 for structural validation. `corpus.toml` is the single machine-readable source for the project inventory and QA cases. The bootstrap `test-graphcal` runner uses these fields to run the standard formatting, checking, and evaluation pipeline and report process health. Typed expectation and assertion handling will be added in a later phase; fields not needed for bootstrap validation are intentionally deferred.
 
 ## `corpus.toml`
 

@@ -17,7 +17,7 @@ Private project names, paths, source text, inputs, outputs, and results are proh
 
 Coding agents and other generators may prepare **candidates**, but generated content is untrusted. A human promotes a candidate only after reviewing its privacy, structure, provenance, expectation classification, independent calculations, and determinism evidence. The complete process is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-The corpus is data-only. Graphcal's trusted runner lives in the Graphcal repository and must not execute project-provided scripts. This repository's CI performs structural validation only; it does not invoke Graphcal or any program supplied by a corpus project.
+Corpus projects are data-only and must not contain executable test hooks. This repository provides an opt-in local runner for a caller-supplied Graphcal executable; it never invokes project-provided programs. Repository CI performs structural validation only and does not run Graphcal.
 
 ## Repository layout
 
@@ -32,7 +32,7 @@ The corpus is data-only. Graphcal's trusted runner lives in the Graphcal reposit
 │       ├── expected/
 │       └── reference/
 ├── schema/README.md            # bootstrap manifest contract
-└── src/qa_corpus/              # trusted structural validator package
+└── src/qa_corpus/              # structural validator and local executable runner
 ```
 
 Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, and all of its QA cases must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus. Each case represents one entrypoint; a project may declare multiple cases only when it has multiple entry files.
@@ -48,6 +48,20 @@ $ uv run -m pytest
 ```
 
 The validator parses `corpus.toml` into strict Pydantic models and parses each `graphcal.toml`, then rejects invalid types, duplicate project or case identifiers, missing or undeclared projects, missing case entry files, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.
+
+## Test a Graphcal executable
+
+Run the active corpus against a local Graphcal build by passing its executable path or command name:
+
+```console
+$ uv run test-graphcal /path/to/graphcal > report.json
+```
+
+The command first validates the repository. For each active case, in manifest order, it runs `graphcal format --check`, `graphcal check`, and `graphcal eval --format json` from the project directory. Evaluation is skipped when checking fails. Each process has a 30-second timeout by default; use `--timeout SECONDS` to change it.
+
+Stdout contains only one versioned JSON report with the overall status, summary counts, per-stage exit codes and captured output, and parsed evaluation results. The command exits zero only when every stage for every active case passes. Quarantined projects are not run.
+
+This bootstrap runner checks pipeline health and captures semantic JSON; it does not yet apply deferred reference or stability assertions.
 
 ## License
 

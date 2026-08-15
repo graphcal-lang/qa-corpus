@@ -7,7 +7,7 @@ import tomllib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from qa_corpus.manifest import ProjectEntry, parse_manifest
+from qa_corpus.manifest import CorpusManifest, ProjectEntry, parse_manifest
 
 
 def _load_toml(path: Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -89,27 +89,29 @@ def _validate_declared_project(root: Path, project: ProjectEntry) -> list[str]:
     return errors
 
 
-def validate_repository(root: Path) -> list[str]:
-    """Return every structural validation error found under root."""
+def load_repository_manifest(
+    root: Path,
+) -> tuple[CorpusManifest | None, list[str]]:
+    """Load the manifest and return every structural validation error."""
     root = root.resolve()
     corpus_data, errors = _load_toml(root / "corpus.toml", "corpus manifest")
     if corpus_data is None:
-        return errors
+        return None, errors
 
     manifest, inventory_errors = parse_manifest(corpus_data)
     errors.extend(inventory_errors)
     if manifest is None:
-        return errors
+        return None, errors
 
     projects_root = root / "projects"
     if projects_root.is_symlink():
         errors.append(
             f"Projects directory must not be a symbolic link: {projects_root}"
         )
-        return errors
+        return manifest, errors
     if not projects_root.is_dir():
         errors.append(f"Missing projects directory: {projects_root}")
-        return errors
+        return manifest, errors
 
     errors.extend(
         f"Symbolic links are prohibited under projects/: "
@@ -127,4 +129,10 @@ def validate_repository(root: Path) -> list[str]:
     for project in manifest.projects:
         errors.extend(_validate_declared_project(root, project))
 
+    return manifest, errors
+
+
+def validate_repository(root: Path) -> list[str]:
+    """Return every structural validation error found under root."""
+    _, errors = load_repository_manifest(root)
     return errors
