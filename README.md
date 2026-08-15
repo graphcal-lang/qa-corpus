@@ -40,11 +40,12 @@ Projects are never discovered as runnable tests merely because they exist on dis
 
 ## Validate locally
 
-Python 3.11 or newer is required:
+[`uv`](https://docs.astral.sh/uv/) installs the pinned Python 3.14 toolchain and test dependencies:
 
 ```console
-$ ./scripts/validate_corpus.py
+$ uv run --locked scripts/validate_corpus.py
 Corpus structure is valid (0 declared projects).
+$ uv run --locked -m pytest
 ```
 
 The validator parses manifests and rejects duplicate identifiers, missing or undeclared projects, malformed layout, symlinks, and paths that can escape this repository. It never executes project content.

@@ -11,7 +11,7 @@
 - [ ] I independently verified reference-backed assertions without relying solely on Graphcal output.
 - [ ] I recorded producing revisions, comparison rules, and repeated-run determinism for stability baselines.
 - [ ] I recorded candidate-generation and human-review provenance.
-- [ ] I ran `./scripts/validate_corpus.py`.
+- [ ] I ran `uv run --locked scripts/validate_corpus.py` and `uv run --locked -m pytest`.
 
 ## Evidence
 
