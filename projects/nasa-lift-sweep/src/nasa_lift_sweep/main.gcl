@@ -1,0 +1,24 @@
+pub index FlightPoint = { Approach, Cruise, Fast };
+
+param air_density: Mass / Volume = 1.225 kg/m^3;
+param wing_area: Area = 16.2 m^2;
+param lift_coefficient: Dimensionless = 0.8;
+param airspeed: Velocity[FlightPoint] = {
+    FlightPoint.Approach: 30.0 m/s,
+    FlightPoint.Cruise: 40.0 m/s,
+    FlightPoint.Fast: 50.0 m/s,
+};
+param required_lift: Force = 12.0 kN;
+
+node dynamic_pressure: Pressure[FlightPoint] = for point: FlightPoint {
+    0.5 * @air_density * @airspeed[point] ^ 2
+};
+node lift_force: Force[FlightPoint] = for point: FlightPoint {
+    @lift_coefficient * @dynamic_pressure[point] * @wing_area
+};
+node cruise_dynamic_pressure: Pressure = @dynamic_pressure[FlightPoint.Cruise] -> Pa;
+node cruise_lift: Force = @lift_force[FlightPoint.Cruise] -> kN;
+node maximum_lift: Force = maximum(@lift_force) -> kN;
+node level_flight_speed: Velocity = sqrt(
+    2.0 * @required_lift / (@air_density * @wing_area * @lift_coefficient)
+);

@@ -55,3 +55,121 @@ evidence = "reference/calculation.md"
 pointer = "/node/mass_ratio/si_value"
 expected = 10.0
 absolute_tolerance = 1.0
+[[projects]]
+id = "nasa-lift-sweep"
+path = "projects/nasa-lift-sweep"
+status = "active"
+domain = "aerodynamics"
+origin = "source-backed"
+purpose = "Verify dynamic pressure, lift, and inverse speed against NASA's lift equation."
+
+[[projects.cases]]
+id = "three-flight-points"
+entry = "src/nasa_lift_sweep/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/cruise_dynamic_pressure/si_value"
+expected = 980.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/cruise_lift/si_value"
+expected = 12700.8
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/maximum_lift/si_value"
+expected = 19845.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/level_flight_speed/si_value"
+expected = 38.88078956798696
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/maximum_lift/unit"
+expected = "kN"
+
+[[projects]]
+id = "pvwatts-hourly-dc-energy"
+path = "projects/pvwatts-hourly-dc-energy"
+status = "active"
+domain = "solar-energy"
+origin = "source-backed"
+purpose = "Verify an hourly DC-energy calculation against the PVWatts Version 5 module model."
+
+[[projects.cases]]
+id = "four-hour-profile"
+entry = "src/pvwatts_hourly_dc_energy/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/low_sun_dc_power/si_value"
+expected = 1040.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/peak_dc_power/si_value"
+expected = 4600.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_dc_energy/si_value"
+expected = 38016000.0
+absolute_tolerance = 1e-6
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/peak_dc_power/unit"
+expected = "kW"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/total_dc_energy/unit"
+expected = "kWh"
+
+[[projects]]
+id = "fao56-reference-evapotranspiration"
+path = "projects/fao56-reference-evapotranspiration"
+status = "active"
+domain = "agricultural-water-management"
+origin = "source-backed"
+purpose = "Reproduce the FAO-56 Example 18 daily reference evapotranspiration result."
+
+[[projects.cases]]
+id = "example-18"
+entry = "src/fao56_reference_evapotranspiration/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/radiation_component/si_value"
+expected = 3.2466022318476985e-8
+absolute_tolerance = 1e-18
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/aerodynamic_component/si_value"
+expected = 1.2429119836677152e-8
+absolute_tolerance = 1e-18
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reference_evapotranspiration/si_value"
+expected = 4.489514215515413e-8
+absolute_tolerance = 1e-18
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_reference_evapotranspiration/si_value"
+expected = 4.5138888888888884e-8
+absolute_tolerance = 1e-18
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_reference_evapotranspiration/unit"
+expected = "mm_per_day"

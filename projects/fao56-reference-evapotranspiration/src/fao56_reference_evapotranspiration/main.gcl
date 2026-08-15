@@ -1,0 +1,36 @@
+const unit day: Time = 24.0 h;
+const unit MJ: Energy = 1000.0 kJ;
+const unit mm_per_day: Velocity = 1.0 mm/day;
+const unit MJ_per_square_metre_day: Power / Area = 1.0 MJ/m^2/day;
+const unit kPa_per_K: Pressure / Temperature = 1.0 kPa/K;
+
+param mean_air_temperature: Temperature = 290.05 K;
+param wind_speed_2m: Velocity = 2.078 m/s;
+param slope_vapour_pressure_curve: Pressure / Temperature = 0.122 kPa_per_K;
+param psychrometric_constant: Pressure / Temperature = 0.0666 kPa_per_K;
+param vapour_pressure_deficit: Pressure = 0.589 kPa;
+param net_radiation_flux: Power / Area = 13.28 MJ_per_square_metre_day;
+param soil_heat_flux: Power / Area = 0.0 MJ_per_square_metre_day;
+
+const node reporting_increment: Velocity = 0.1 mm_per_day;
+
+node mean_air_temperature_celsius_value: Dimensionless = (@mean_air_temperature - 273.15 K) / 1.0 K;
+node normalized_wind_speed: Dimensionless = @wind_speed_2m / 1.0 m/s;
+node normalized_slope: Dimensionless = @slope_vapour_pressure_curve / 1.0 kPa_per_K;
+node normalized_psychrometric_constant: Dimensionless = @psychrometric_constant / 1.0 kPa_per_K;
+node normalized_vapour_pressure_deficit: Dimensionless = @vapour_pressure_deficit / 1.0 kPa;
+node normalized_available_radiation: Dimensionless = (
+    @net_radiation_flux - @soil_heat_flux
+) / 1.0 MJ_per_square_metre_day;
+node denominator: Dimensionless = @normalized_slope + @normalized_psychrometric_constant * (
+    1.0 + 0.34 * @normalized_wind_speed
+);
+
+node radiation_component: Velocity = 0.408 * @normalized_available_radiation * @normalized_slope / @denominator * 1.0 mm_per_day -> mm_per_day;
+node aerodynamic_component: Velocity = @normalized_psychrometric_constant * (
+    900.0 / (@mean_air_temperature_celsius_value + 273.0)
+) * @normalized_wind_speed * @normalized_vapour_pressure_deficit / @denominator * 1.0 mm_per_day -> mm_per_day;
+node reference_evapotranspiration: Velocity = @radiation_component + @aerodynamic_component -> mm_per_day;
+node reported_reference_evapotranspiration: Velocity = round(
+    @reference_evapotranspiration / @reporting_increment
+) * @reporting_increment -> mm_per_day;
