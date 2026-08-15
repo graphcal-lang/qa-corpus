@@ -15,4 +15,4 @@
 
 ## Evidence
 
-<!-- Link citations/calculations or explain why a policy-only change does not need them. -->
+<!-- Link supporting citations or independent calculations for corpus-project changes. For documentation, policy, or tooling changes where these do not apply, briefly state why. -->
