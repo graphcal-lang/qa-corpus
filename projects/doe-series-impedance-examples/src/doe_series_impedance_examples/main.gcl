@@ -1,0 +1,67 @@
+pub dim Voltage = Mass * Length^2 / Time^3 / ElectricCurrent;
+pub dim Resistance = Mass * Length^2 / Time^3 / ElectricCurrent^2;
+const unit V: Voltage = 1.0 W/A;
+const unit ohm: Resistance = 1.0 V/A;
+
+param rl_resistance: Resistance(min: 0.0 ohm) = 100.0 ohm;
+param rl_inductive_reactance: Resistance(min: 0.0 ohm) = 60.0 ohm;
+param rl_applied_voltage: Voltage(min: 0.0 V) = 115.0 V;
+param rc_resistance: Resistance(min: 0.0 ohm) = 60.0 ohm;
+param rc_capacitive_reactance: Resistance(min: 0.0 ohm) = 50.0 ohm;
+param rcl_resistance: Resistance(min: 0.0 ohm) = 6.0 ohm;
+param rcl_inductive_reactance: Resistance(min: 0.0 ohm) = 20.0 ohm;
+param rcl_capacitive_reactance: Resistance(min: 0.0 ohm) = 10.0 ohm;
+
+const node tenth_ohm: Resistance = 0.1 ohm;
+const node hundredth_ohm: Resistance = 0.01 ohm;
+
+dag series_impedance {
+    pub(bind) dim ImpedanceDimension;
+
+    param resistance: ImpedanceDimension;
+    param inductive_reactance: ImpedanceDimension;
+    param capacitive_reactance: ImpedanceDimension;
+
+    pub node impedance: Complex<ImpedanceDimension> = complex(
+        @resistance,
+        @inductive_reactance - @capacitive_reactance
+    );
+    pub node magnitude: ImpedanceDimension = abs(@impedance);
+    pub node phase_angle: Angle = phase(@impedance);
+}
+
+include series_impedance(
+    ImpedanceDimension: Resistance,
+    resistance: @rl_resistance,
+    inductive_reactance: @rl_inductive_reactance,
+    capacitive_reactance: 0.0 ohm
+) as rl;
+include series_impedance(
+    ImpedanceDimension: Resistance,
+    resistance: @rc_resistance,
+    inductive_reactance: 0.0 ohm,
+    capacitive_reactance: @rc_capacitive_reactance
+) as rc;
+include series_impedance(
+    ImpedanceDimension: Resistance,
+    resistance: @rcl_resistance,
+    inductive_reactance: @rcl_inductive_reactance,
+    capacitive_reactance: @rcl_capacitive_reactance
+) as rcl;
+
+node rl_current: Complex<ElectricCurrent> = to_complex(@rl_applied_voltage) / @rl.impedance;
+node rl_current_magnitude: ElectricCurrent = abs(@rl_current) -> A;
+node rl_impedance_conjugate: Complex<Resistance> = conj(@rl.impedance) -> ohm;
+node rl_impedance_reconstructed: Complex<Resistance> = polar(@rl.magnitude, @rl.phase_angle) -> ohm;
+node rl_resistive_component: Resistance = re(@rl.impedance) -> ohm;
+node rl_reactive_component: Resistance = im(@rl.impedance) -> ohm;
+
+node reported_rl_impedance: Resistance = round(@rl.magnitude / @tenth_ohm) * @tenth_ohm -> ohm;
+node reported_rc_impedance: Resistance = round(@rc.magnitude / @tenth_ohm) * @tenth_ohm -> ohm;
+node reported_rcl_impedance: Resistance = round(
+    @rcl.magnitude / @hundredth_ohm
+) * @hundredth_ohm -> ohm;
+
+assert rl_matches_doe = @reported_rl_impedance ~= 116.6 ohm +/- 0.05 ohm;
+assert rc_matches_doe = @reported_rc_impedance ~= 78.1 ohm +/- 0.05 ohm;
+assert rcl_matches_doe = @reported_rcl_impedance ~= 11.66 ohm +/- 0.005 ohm;
