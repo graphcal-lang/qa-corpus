@@ -60,7 +60,7 @@ A health-only case checks only an expected command outcome, such as successful p
 
 - Use stable lowercase kebab-case identifiers. Do not recycle an identifier for a different analysis.
 - Keep each project under exactly `projects/<project-id>/`, with the directory name matching the project ID, and declare it in `corpus.toml`.
-- Declare each entrypoint and operation as a separate case under its project in `corpus.toml`; multiple cases may use the same or different entry files.
+- Declare one case per entrypoint under its project in `corpus.toml`; do not create separate checking, formatting, and evaluation cases for the same entry file.
 - Keep inputs and references in the project directory. Symbolic links are prohibited.
 - Provide a short engineering question and document assumptions, constants, sign conventions, and unit conventions.
 - Use narrowly justified per-assertion tolerances. Do not rely on a permissive global tolerance.

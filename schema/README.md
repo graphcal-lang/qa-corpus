@@ -18,17 +18,15 @@ origin = "source-backed"
 purpose = "Evaluate a nominal launch-vehicle stage sizing analysis."
 
 [[projects.cases]]
-id = "nominal-check"
+id = "nominal"
 entry = "src/nominal.gcl"
-operation = "check"
 
 [[projects.cases]]
-id = "contingency-eval"
+id = "contingency"
 entry = "src/contingency.gcl"
-operation = "evaluate"
 ```
 
-The bootstrap validator loads these fields into strict Pydantic models without scalar coercion. It requires and interprets `schema_version`, each project's `id`, `path`, `status`, and `cases`, and each case's `id`, `entry`, and `operation`. Unknown root fields are rejected. Additional project and case fields are temporarily allowed so descriptive, provenance, expectation, assertion, comparison-profile, and timeout metadata can be finalized with the trusted runner; once that schema is complete, these models should reject unknown fields too. Large expected outputs and reference calculations remain files inside the project and are referenced by relative path.
+The bootstrap validator loads these fields into strict Pydantic models without scalar coercion. It requires and interprets `schema_version`, each project's `id`, `path`, `status`, and `cases`, and each case's `id` and `entry`. Unknown root fields are rejected. Additional project and case fields are temporarily allowed so descriptive, provenance, expectation, assertion, comparison-profile, stage-selection, and timeout metadata can be finalized with the trusted runner; once that schema is complete, these models should reject unknown fields too. Large expected outputs and reference calculations remain files inside the project and are referenced by relative path.
 
 ### Project rules
 
@@ -47,9 +45,9 @@ To add the first project, remove the root `projects = []` before adding `[[proje
 ### Case rules
 
 - `id` is stable lowercase kebab-case and unique within its project. The canonical corpus identity is the project ID plus case ID.
-- `entry` is a canonical POSIX path relative to the project directory. It must resolve to an existing regular file inside that project.
-- `operation` is `check` or `evaluate`.
-- Each case independently declares its entry file, so one project may exercise multiple entrypoints. Cases may also share an entry when they exercise different operations or inputs.
+- `entry` is a canonical POSIX path relative to the project directory. It must resolve to an existing regular file inside that project and be unique within the project manifest.
+- A case represents one entrypoint and runs the standard validation pipeline. Do not create separate cases for checking, formatting, and evaluation of the same entrypoint.
+- Stage-specific controls such as skipping evaluation or formatting are deferred until the trusted runner schema is finalized. The obsolete `operation` field is rejected rather than silently ignored.
 
 Absolute paths, `.` or `..` components, backslashes, symbolic links, and any project or case path resolving outside its allowed root are invalid.
 

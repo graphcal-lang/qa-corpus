@@ -10,13 +10,6 @@ origin = "original-synthetic"
 purpose = "Exercise corpus discovery, project loading, checking, and evaluation."
 
 [[projects.cases]]
-id = "nominal-check"
+id = "nominal"
 entry = "src/minimal_mass_budget/main.gcl"
-operation = "check"
-expectation_class = "health-only"
-
-[[projects.cases]]
-id = "nominal-evaluate"
-entry = "src/minimal_mass_budget/main.gcl"
-operation = "evaluate"
 expectation_class = "health-only"

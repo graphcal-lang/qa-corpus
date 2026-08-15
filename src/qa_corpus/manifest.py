@@ -66,11 +66,6 @@ class ProjectStatus(StrEnum):
     QUARANTINED = "quarantined"
 
 
-class CaseOperation(StrEnum):
-    CHECK = "check"
-    EVALUATE = "evaluate"
-
-
 class ExtensibleManifestModel(BaseModel):
     """Strict bootstrap fields with forward-compatible additional metadata."""
 
@@ -85,7 +80,15 @@ class ExtensibleManifestModel(BaseModel):
 class CaseEntry(ExtensibleManifestModel):
     id: StableId
     entry: CaseEntryPath
-    operation: CaseOperation = Field(strict=False)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_operation(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "operation" in value:
+            raise ValueError(
+                "operation is not supported; each case runs the standard entrypoint pipeline"
+            )
+        return value
 
 
 class ProjectEntry(ExtensibleManifestModel):
@@ -100,9 +103,16 @@ class ProjectEntry(ExtensibleManifestModel):
             raise ValueError(f"project path must end with its id {self.id!r}")
 
         duplicate_case_ids = _duplicates(case.id for case in self.cases)
-        if duplicate_case_ids:
-            duplicates = ", ".join(repr(value) for value in duplicate_case_ids)
-            raise ValueError(f"duplicate case id: {duplicates}")
+        duplicate_case_entries = _duplicates(case.entry for case in self.cases)
+        errors = [
+            *(f"duplicate case id: {value!r}" for value in duplicate_case_ids),
+            *(
+                f"duplicate case entrypoint: {value!r}"
+                for value in duplicate_case_entries
+            ),
+        ]
+        if errors:
+            raise ValueError("; ".join(errors))
 
         if self.status is ProjectStatus.ACTIVE and not self.cases:
             raise ValueError("must declare at least one case while active")

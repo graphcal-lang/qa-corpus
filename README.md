@@ -35,7 +35,7 @@ The corpus is data-only. Graphcal's trusted runner lives in the Graphcal reposit
 └── src/qa_corpus/              # trusted structural validator package
 ```
 
-Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, and all of its QA cases must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus. Cases may reference different entry files within the same project.
+Projects are never discovered as runnable tests merely because they exist on disk. Every project, including quarantined candidates, and all of its QA cases must be declared in `corpus.toml`; only entries with `status = "active"` belong to the active corpus. Each case represents one entrypoint; a project may declare multiple cases only when it has multiple entry files.
 
 ## Validate locally
 

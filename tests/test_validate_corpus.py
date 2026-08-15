@@ -20,16 +20,10 @@ def write_inventory(root: Path, projects: str = "projects = []") -> None:
 
 
 def case_entry(
-    identifier: str = "nominal-check",
+    identifier: str = "nominal",
     entry: str = "src/main.gcl",
-    operation: str = "check",
 ) -> str:
-    return (
-        "[[projects.cases]]\n"
-        f'id = "{identifier}"\n'
-        f'entry = "{entry}"\n'
-        f'operation = "{operation}"\n'
-    )
+    return f'[[projects.cases]]\nid = "{identifier}"\nentry = "{entry}"\n'
 
 
 def inventory_entry(
@@ -139,13 +133,25 @@ def test_accepts_project_without_separate_qa_manifest(tmp_path: Path) -> None:
 def test_accepts_multiple_case_entrypoints(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     path = "projects/power-budget"
-    cases = case_entry("nominal-check", "src/nominal.gcl", "check") + case_entry(
-        "contingency-eval", "src/contingency.gcl", "evaluate"
+    cases = case_entry("nominal", "src/nominal.gcl") + case_entry(
+        "contingency", "src/contingency.gcl"
     )
     write_inventory(root, inventory_entry("power-budget", path, cases))
     create_project(root, path, ("src/nominal.gcl", "src/contingency.gcl"))
 
     assert validate_repository(root) == []
+
+
+def test_rejects_case_operation(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/legacy-operation"
+    cases = case_entry() + 'operation = "check"\n'
+    write_inventory(root, inventory_entry("legacy-operation", path, cases))
+    create_project(root, path)
+
+    errors = validate_repository(root)
+
+    assert any("operation is not supported" in error for error in errors), errors
 
 
 def test_accepts_quarantined_project_without_cases(tmp_path: Path) -> None:
@@ -191,7 +197,7 @@ def test_rejects_duplicate_case_ids(tmp_path: Path) -> None:
     root = create_repository(tmp_path)
     path = "projects/thermal-balance"
     cases = case_entry("nominal", "src/first.gcl") + case_entry(
-        "nominal", "src/second.gcl", "evaluate"
+        "nominal", "src/second.gcl"
     )
     write_inventory(root, inventory_entry("thermal-balance", path, cases))
     create_project(root, path, ("src/first.gcl", "src/second.gcl"))
@@ -199,6 +205,18 @@ def test_rejects_duplicate_case_ids(tmp_path: Path) -> None:
     errors = validate_repository(root)
 
     assert any("duplicate case id" in error for error in errors), errors
+
+
+def test_rejects_duplicate_case_entrypoints(tmp_path: Path) -> None:
+    root = create_repository(tmp_path)
+    path = "projects/thermal-balance"
+    cases = case_entry("nominal") + case_entry("contingency")
+    write_inventory(root, inventory_entry("thermal-balance", path, cases))
+    create_project(root, path)
+
+    errors = validate_repository(root)
+
+    assert any("duplicate case entrypoint" in error for error in errors), errors
 
 
 def test_rejects_traversal_path(tmp_path: Path) -> None:
