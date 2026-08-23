@@ -1,0 +1,36 @@
+{
+  "const": {
+    "reserve_factor": {
+      "si_value": 1.25
+    }
+  },
+  "node": {
+    "avionics_load": {
+      "display_value": 200.0,
+      "si_value": 200.0,
+      "unit": "W"
+    },
+    "design_source_power": {
+      "si_value": 781.25,
+      "unit": "m^2*kg/s^3"
+    },
+    "required_source_power": {
+      "si_value": 625.0,
+      "unit": "m^2*kg/s^3"
+    },
+    "thermal_control_load": {
+      "display_value": 300.0,
+      "si_value": 300.0,
+      "unit": "W"
+    },
+    "total_load": {
+      "si_value": 500.0,
+      "unit": "m^2*kg/s^3"
+    }
+  },
+  "param": {
+    "conversion_efficiency": {
+      "si_value": 0.8
+    }
+  }
+}

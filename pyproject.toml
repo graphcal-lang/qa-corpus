@@ -1,0 +1,24 @@
+[project]
+name = "graphcal-qa-corpus"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.13.4",
+    "typer>=0.27.1",
+]
+
+[project.scripts]
+test-graphcal = "qa_corpus.test_cli:app"
+validate-corpus = "qa_corpus.cli:app"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "qa_corpus"

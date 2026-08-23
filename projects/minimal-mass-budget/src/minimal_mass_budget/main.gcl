@@ -1,0 +1,6 @@
+param dry_mass: Mass = 1000.0 kg;
+param payload_mass: Mass = 250.0 kg;
+const node contingency_factor: Dimensionless = 1.05;
+
+node subtotal_mass: Mass = @dry_mass + @payload_mass;
+node design_mass: Mass = @subtotal_mass * @contingency_factor;

@@ -1,0 +1,8 @@
+const unit ft: Length = 0.3048 m;
+
+param required_delta_v: Velocity = 25000.0 ft/s;
+param specific_impulse: Time = 350.0 s;
+const node standard_gravity: Acceleration = 32.2 ft/s^2;
+
+node effective_exhaust_velocity: Velocity = @specific_impulse * @standard_gravity;
+node mass_ratio: Dimensionless = exp(@required_delta_v / @effective_exhaust_velocity);

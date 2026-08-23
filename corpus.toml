@@ -1,0 +1,57 @@
+# Graphcal QA corpus manifest. See schema/README.md.
+schema_version = 1
+
+[[projects]]
+id = "minimal-mass-budget"
+path = "projects/minimal-mass-budget"
+status = "active"
+domain = "systems-engineering"
+origin = "original-synthetic"
+purpose = "Exercise corpus discovery, project loading, checking, and evaluation."
+
+[[projects.cases]]
+id = "nominal"
+entry = "src/minimal_mass_budget/main.gcl"
+expectation = { kind = "health-only" }
+
+[[projects]]
+id = "modular-power-budget"
+path = "projects/modular-power-budget"
+status = "active"
+domain = "electrical-systems"
+origin = "original-synthetic"
+purpose = "Detect semantic drift in multi-file power-budget evaluation output."
+
+[[projects.cases]]
+id = "nominal"
+entry = "src/modular_power_budget/main.gcl"
+
+[projects.cases.expectation]
+kind = "stability-baseline"
+expected = "expected/nominal.json"
+evidence = "reference/baseline.md"
+
+[projects.cases.expectation.comparison]
+mode = "semantic-json"
+tolerances = []
+
+[[projects]]
+id = "ideal-rocket-equation"
+path = "projects/ideal-rocket-equation"
+status = "active"
+domain = "propulsion"
+origin = "source-backed"
+purpose = "Reproduce the approximate mass ratio reported by NASA's ideal rocket equation example."
+
+[[projects.cases]]
+id = "mass-ratio-ten"
+entry = "src/ideal_rocket_equation/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/mass_ratio/si_value"
+expected = 10.0
+absolute_tolerance = 1.0
