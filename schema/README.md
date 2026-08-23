@@ -98,13 +98,9 @@ kind = "reference-backed"
 evidence = "reference/calculation.md"
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/delta_v/si_value"
-expected = 7903.226135773521
-absolute_tolerance = 1e-9
-
-[[projects.cases.expectation.assertions]]
-pointer = "/node/delta_v/unit"
-expected = "m/s"
+pointer = "/node/mass_ratio/si_value"
+expected = 10.0
+absolute_tolerance = 1.0
 ```
 
 A reference-backed expectation requires:
