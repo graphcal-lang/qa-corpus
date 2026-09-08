@@ -287,3 +287,190 @@ expected = "kg"
 [[projects.cases.expectation.assertions]]
 pointer = "/node/reported_voc_percent_by_mass/si_value"
 expected = 32.0
+
+[[projects]]
+id = "nist-load-cell-quadratic-fit"
+path = "projects/nist-load-cell-quadratic-fit"
+status = "active"
+domain = "measurement-calibration"
+origin = "source-backed"
+purpose = "Reproduce NIST-certified load-cell regression statistics with typed dense linear algebra."
+
+[[projects.cases]]
+id = "pontius-certified-fit"
+entry = "src/nist_load_cell_quadratic_fit/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/source_intercept/si_value"
+expected = 0.000673565789473684
+absolute_tolerance = 5e-16
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/source_linear_coefficient_per_million/si_value"
+expected = 0.732059160401003
+absolute_tolerance = 5e-13
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/source_quadratic_coefficient_per_million_squared/si_value"
+expected = -0.00316081871345029
+absolute_tolerance = 5e-15
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/residual_standard_deviation/si_value"
+expected = 0.000205177424076185
+absolute_tolerance = 5e-16
+
+[[projects]]
+id = "doe-series-impedance-examples"
+path = "projects/doe-series-impedance-examples"
+status = "active"
+domain = "electrical-engineering"
+origin = "source-backed"
+purpose = "Reproduce DOE series-circuit impedance examples with dimension-aware complex phasors."
+
+[[projects.cases]]
+id = "handbook-series-circuits"
+entry = "src/doe_series_impedance_examples/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rl_impedance/display_value"
+expected = 116.6
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rl_impedance/unit"
+expected = "ohm"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rc_impedance/display_value"
+expected = 78.1
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rc_impedance/unit"
+expected = "ohm"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rcl_impedance/display_value"
+expected = 11.66
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_rcl_impedance/unit"
+expected = "ohm"
+
+[[projects]]
+id = "usno-j2000-time-scales"
+path = "projects/usno-j2000-time-scales"
+status = "active"
+domain = "astronomical-timekeeping"
+origin = "source-backed"
+purpose = "Reproduce USNO-published J2000.0 coordinates across TT, TAI, and UTC."
+
+[[projects.cases]]
+id = "j2000-equivalent-coordinates"
+entry = "src/usno_j2000_time_scales/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_tai_time_before_noon/display_value"
+expected = 32.184
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_tai_time_before_noon/unit"
+expected = "s"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_utc_time_before_noon/display_value"
+expected = 64.184
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_utc_time_before_noon/unit"
+expected = "s"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/tai_hour"
+expected = 11
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/tai_minute"
+expected = 59
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/tai_second"
+expected = 27
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/utc_hour"
+expected = 11
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/utc_minute"
+expected = 58
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/utc_second"
+expected = 55
+
+[[projects]]
+id = "fao24-soil-water-balance"
+path = "projects/fao24-soil-water-balance"
+status = "active"
+domain = "irrigation-scheduling"
+origin = "source-backed"
+purpose = "Reproduce an FAO cotton soil-water balance with an ordered algebraic scan."
+
+[[projects.cases]]
+id = "cotton-march-august"
+entry = "src/fao24_soil_water_balance/main.gcl"
+
+[projects.cases.expectation]
+kind = "reference-backed"
+evidence = "reference/calculation.md"
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/March/display_value"
+expected = 145.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/April/display_value"
+expected = 85.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/May/display_value"
+expected = -120.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/June/display_value"
+expected = -405.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/July/display_value"
+expected = -685.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/August/display_value"
+expected = -805.0
+absolute_tolerance = 1e-9
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_end_of_month_balance/entries/March/unit"
+expected = "mm"
