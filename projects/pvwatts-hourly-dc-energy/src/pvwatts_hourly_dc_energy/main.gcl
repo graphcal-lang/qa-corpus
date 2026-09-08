@@ -1,0 +1,37 @@
+const unit kWh: Energy = 1.0 kW * h;
+
+pub index Period = { LowSun, MidMorning, SolarNoon, Afternoon };
+
+param nameplate_dc_power: Power = 5.0 kW;
+param effective_irradiance: Power / Area[Period] = {
+    Period.LowSun: 200.0 W/m^2,
+    Period.MidMorning: 600.0 W/m^2,
+    Period.SolarNoon: 1000.0 W/m^2,
+    Period.Afternoon: 400.0 W/m^2,
+};
+param cell_temperature: Temperature[Period] = {
+    Period.LowSun: 288.15 K,
+    Period.MidMorning: 298.15 K,
+    Period.SolarNoon: 318.15 K,
+    Period.Afternoon: 308.15 K,
+};
+param temperature_coefficient: Temperature^-1 = -0.004 1/K;
+param interval_duration: Time = 1.0 h;
+
+const node reference_irradiance: Power / Area = 1000.0 W/m^2;
+const node reference_cell_temperature: Temperature = 298.15 K;
+
+node temperature_factor: Dimensionless[Period] = for period: Period {
+    1.0 + @temperature_coefficient * (@cell_temperature[period] - @reference_cell_temperature)
+};
+node dc_power: Power[Period] = for period: Period {
+    @nameplate_dc_power * (
+        @effective_irradiance[period] / @reference_irradiance
+    ) * @temperature_factor[period]
+};
+node interval_dc_energy: Energy[Period] = for period: Period {
+    @dc_power[period] * @interval_duration
+};
+node low_sun_dc_power: Power = @dc_power[Period.LowSun] -> kW;
+node peak_dc_power: Power = maximum(@dc_power) -> kW;
+node total_dc_energy: Energy = sum(@interval_dc_energy) -> kWh;

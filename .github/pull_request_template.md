@@ -8,11 +8,11 @@
 - [ ] I performed a human privacy review and found no private project names, paths, source text, inputs, or results.
 - [ ] I confirmed that all included material may be redistributed.
 - [ ] I classified each expectation as reference-backed, stability-baseline, or health-only.
-- [ ] I independently verified reference-backed assertions without relying solely on Graphcal output.
+- [ ] I mapped every reference-backed expected value directly to a value reported by a reliable public source.
 - [ ] I recorded producing revisions, comparison rules, and repeated-run determinism for stability baselines.
 - [ ] I recorded candidate-generation and human-review provenance.
 - [ ] I ran `uv run validate-corpus` and `uv run -m pytest`.
 
 ## Evidence
 
-<!-- Link supporting citations or independent calculations for corpus-project changes. For documentation, policy, or tooling changes where these do not apply, briefly state why. -->
+<!-- Link source-to-assertion mappings for reference-backed cases and generation records for stability baselines. For documentation, policy, or tooling changes where these do not apply, briefly state why. -->
