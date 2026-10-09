@@ -1,0 +1,98 @@
+pub type MonthlyWaterAccount {
+    MonthlyWaterAccount(
+        rainfall: Length,
+        groundwater: Length,
+        crop_evapotranspiration: Length,
+    ),
+}
+
+pub index Month = { March, April, May, June, July, August };
+
+param initial_soil_water_balance: Length = 100.0 mm;
+param monthly_account: MonthlyWaterAccount[Month] = {
+    Month.March: MonthlyWaterAccount(
+        rainfall: 90.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 45.0 mm,
+    ),
+    Month.April: MonthlyWaterAccount(
+        rainfall: 50.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 110.0 mm,
+    ),
+    Month.May: MonthlyWaterAccount(
+        rainfall: 20.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 225.0 mm,
+    ),
+    Month.June: MonthlyWaterAccount(
+        rainfall: 0.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 285.0 mm,
+    ),
+    Month.July: MonthlyWaterAccount(
+        rainfall: 0.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 280.0 mm,
+    ),
+    Month.August: MonthlyWaterAccount(
+        rainfall: 0.0 mm,
+        groundwater: 0.0 mm,
+        crop_evapotranspiration: 120.0 mm,
+    ),
+};
+
+const node published_end_balance: Length[Month] = {
+    Month.March: 145.0 mm,
+    Month.April: 85.0 mm,
+    Month.May: -120.0 mm,
+    Month.June: -405.0 mm,
+    Month.July: -685.0 mm,
+    Month.August: -805.0 mm,
+};
+
+node end_of_month_balance: Length[Month] = scan(
+    @monthly_account,
+    @initial_soil_water_balance,
+    |balance, account|
+        match account {
+            MonthlyWaterAccount(rainfall: rainfall, groundwater: groundwater, crop_evapotranspiration: crop_evapotranspiration) => balance + rainfall + groundwater - crop_evapotranspiration,
+        }
+);
+node reported_end_of_month_balance: Length[Month] = for month: Month {
+    @end_of_month_balance[month] -> mm
+};
+
+assert monthly_balances_match_fao = @reported_end_of_month_balance ~= @published_end_balance +/- 1.0e-9 mm;
+
+#[assumes(monthly_balances_match_fao)]
+node water_deficit: Bool[Month] = for month: Month { @end_of_month_balance[month] < 0.0 mm };
+node deficit_month_count: Int = to_int(
+    sum(for month: Month { if @water_deficit[month] { 1.0 } else { 0.0 } })
+);
+node lowest_balance_month: Key<Month> = argmin(@end_of_month_balance);
+node lowest_balance: Length = @end_of_month_balance[@lowest_balance_month] -> mm;
+
+const node month_number: Dimensionless[Month] = {
+    Month.March: 3.0,
+    Month.April: 4.0,
+    Month.May: 5.0,
+    Month.June: 6.0,
+    Month.July: 7.0,
+    Month.August: 8.0,
+};
+
+plot soil_water_balance = {
+    mark: line {
+        stroke_width: 2.0,
+        color: "#2b8cbe",
+    },
+    encode: {
+        x: for month: Month { @month_number[month] },
+        y: for month: Month { @reported_end_of_month_balance[month] -> mm },
+        color: for month: Month { @water_deficit[month] },
+    },
+    title: "FAO Cotton Soil-Water Balance Without Irrigation",
+    x_label: "Month Number",
+    y_label: "End-of-Month Balance (mm)",
+};
