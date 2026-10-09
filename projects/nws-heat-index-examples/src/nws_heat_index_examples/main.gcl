@@ -1,0 +1,19 @@
+pub index Example = { Humid, Dry };
+
+param air_temperature_fahrenheit_value: Dimensionless[Example] = {
+    Example.Humid: 100.0,
+    Example.Dry: 100.0,
+};
+param relative_humidity_percent_value: Dimensionless[Example] = {
+    Example.Humid: 55.0,
+    Example.Dry: 15.0,
+};
+
+node regression_heat_index_fahrenheit_value: Dimensionless[Example] = for example: Example {
+    -42.379 + 2.04901523 * @air_temperature_fahrenheit_value[example] + 10.14333127 * @relative_humidity_percent_value[example] - 0.22475541 * @air_temperature_fahrenheit_value[example] * @relative_humidity_percent_value[example] - 0.00683783 * @air_temperature_fahrenheit_value[example] ^ 2 - 0.05481717 * @relative_humidity_percent_value[example] ^ 2 + 0.00122874 * @air_temperature_fahrenheit_value[example] ^ 2 * @relative_humidity_percent_value[example] + 0.00085282 * @air_temperature_fahrenheit_value[example] * @relative_humidity_percent_value[example] ^ 2 - 0.00000199 * @air_temperature_fahrenheit_value[example] ^ 2 * @relative_humidity_percent_value[example] ^ 2
+};
+node reported_heat_index_fahrenheit_value: Dimensionless[Example] = for example: Example {
+    round(@regression_heat_index_fahrenheit_value[example])
+};
+node humid_example_heat_index_fahrenheit_value: Dimensionless = @reported_heat_index_fahrenheit_value[Example.Humid];
+node dry_example_heat_index_fahrenheit_value: Dimensionless = @reported_heat_index_fahrenheit_value[Example.Dry];

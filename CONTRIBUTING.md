@@ -1,13 +1,15 @@
 # Contributing to the Graphcal QA Corpus
 
-Contributions are welcome when they add independently traceable correctness evidence or original, realistic Graphcal complexity without exposing private material.
+Contributions are welcome when they add directly source-traceable correctness evidence or original, realistic Graphcal complexity without exposing private material.
 
 ## Candidate requirements
 
 A candidate must be either:
 
-1. a **source-backed reproduction** reimplemented from a reliable, redistributable published or well-known analysis; or
+1. a **source-backed reproduction** for which a reliable, redistributable public source supplies both the reproduced inputs and the expected output values; or
 2. an **original synthetic complexity project** created without copying or transforming a private user project.
+
+A project that applies a published equation to original or adapted inputs is original synthetic unless the source also reports the corresponding output. Such a case may cite the equation, but its Graphcal-produced output must be classified as a stability baseline.
 
 Do not submit a candidate merely because the current Graphcal implementation accepts it. Each project must answer a stated engineering question, exercise a documented feature or domain gap, and use deterministic checked-in inputs.
 
@@ -19,7 +21,7 @@ Initial corpus projects must not require network access, private or unpinned dep
 2. **Perform privacy review.** Apply [PRIVACY.md](PRIVACY.md) to names, paths, comments, source, inputs, expected outputs, references, and history. Agent generation and automated scanning do not replace human inspection.
 3. **Check structure.** Put the project at `projects/<project-id>/`, add `graphcal.toml`, declare the project and all QA cases in `corpus.toml`, and run `uv run validate-corpus`.
 4. **Classify every expectation.** Use `reference-backed`, `stability-baseline`, or `health-only` according to the evidence described below. Do not present stability output as a correctness oracle.
-5. **Verify evidence.** Independently check reference-backed assertions. Capture provenance and repeated-run determinism for stability baselines.
+5. **Verify evidence.** Trace every reference-backed expected value to the exact public source location that reports it. Capture producing revisions and repeated-run determinism for stability baselines.
 6. **Submit a pull request.** Explain the project's origin, purpose, coverage, evidence, licensing, and privacy review.
 7. **Obtain human review.** At least one human other than the latest contributor must review the structural, technical, provenance, expectation, and privacy evidence before merge.
 
@@ -29,20 +31,20 @@ Coding-agent output remains an untrusted candidate until this process is complet
 
 ### Reference-backed
 
-A reference-backed assertion must be supported by at least one of:
+A reference-backed assertion requires a reliable public source that reports both:
 
-- an analytical calculation;
-- a separately implemented reference calculation;
-- a reliable published example with compatible assumptions; or
-- manual verification by a domain expert.
+- the inputs and assumptions reproduced by the case; and
+- the expected numerical or scalar output asserted by the manifest.
 
-Do not bless a value solely because `graphcal eval` produced it. Document formulas, assumptions, constants, sign and unit conventions, copied input data, adaptations, tolerances, and the independent result in `reference/calculation.md` or an equivalent non-executable record.
+The evidence must map each JSON Pointer and expected value to an exact source location such as a worked example, report table, published test vector, or source-maintained reference output. Assert only the precision the source reports. Document any source-prescribed rounding and any lossless unit or representation conversion.
 
-For a published source, include enough bibliographic detail to identify the exact example: author or organization, title, edition or version, page or section, DOI or stable URL when available, and access date where useful. Reimplement the analysis; do not copy copyrighted prose, figures, or substantial tables. Record the license and origin of any included third-party data.
+An analytical calculation, separately implemented calculation, domain-expert review, or agreement with `graphcal eval` may corroborate a published value, but none is sufficient as the sole oracle. If a source publishes an equation but no output for the case's inputs, classify the case as `stability-baseline`, not `reference-backed`.
+
+Include enough bibliographic detail to identify the exact example: author or organization, title, edition or version, page, table, equation, or section, DOI or stable URL when available, and access date where useful. Reimplement the analysis; do not copy copyrighted prose, figures, or substantial tables. Record the license and origin of any included third-party data.
 
 ### Stability baseline
 
-A stability baseline detects behavioral drift and does not establish engineering correctness. Record:
+A stability baseline detects behavioral drift and does not establish engineering correctness. Use it for original synthetic cases and source-informed cases whose references provide equations or methods but no expected values for the reproduced inputs. Record:
 
 - the exact Graphcal commit that produced it;
 - the corpus candidate commit and case inputs;
@@ -78,7 +80,7 @@ A project pull request must confirm that:
 - [ ] all included source material and data may be redistributed;
 - [ ] the project is explicitly declared and structural validation passes;
 - [ ] every expectation has the correct evidence class;
-- [ ] every reference-backed assertion was independently verified;
+- [ ] every reference-backed assertion maps directly to a value reported by a reliable public source;
 - [ ] every stability baseline records producing revisions, comparison rules, and repeated-run determinism;
 - [ ] generation and human review provenance are documented; and
 - [ ] the project requires no network, plugin, randomness, clock, private dependency, or executable project hook.

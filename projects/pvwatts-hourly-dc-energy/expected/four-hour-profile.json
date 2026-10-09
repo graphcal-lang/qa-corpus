@@ -1,0 +1,156 @@
+{
+  "const": {
+    "reference_cell_temperature": {
+      "display_value": 298.15,
+      "si_value": 298.15,
+      "unit": "K"
+    },
+    "reference_irradiance": {
+      "display_value": 1000.0,
+      "si_value": 1000.0,
+      "unit": "W/m^2"
+    }
+  },
+  "node": {
+    "dc_power": {
+      "entries": {
+        "Afternoon": {
+          "si_value": 1920.0,
+          "unit": "m^2*kg/s^3"
+        },
+        "LowSun": {
+          "si_value": 1040.0,
+          "unit": "m^2*kg/s^3"
+        },
+        "MidMorning": {
+          "si_value": 3000.0,
+          "unit": "m^2*kg/s^3"
+        },
+        "SolarNoon": {
+          "si_value": 4600.0,
+          "unit": "m^2*kg/s^3"
+        }
+      },
+      "index": "Period"
+    },
+    "interval_dc_energy": {
+      "entries": {
+        "Afternoon": {
+          "si_value": 6912000.0,
+          "unit": "m^2*kg/s^2"
+        },
+        "LowSun": {
+          "si_value": 3744000.0,
+          "unit": "m^2*kg/s^2"
+        },
+        "MidMorning": {
+          "si_value": 10800000.0,
+          "unit": "m^2*kg/s^2"
+        },
+        "SolarNoon": {
+          "si_value": 16560000.0,
+          "unit": "m^2*kg/s^2"
+        }
+      },
+      "index": "Period"
+    },
+    "low_sun_dc_power": {
+      "display_value": 1.04,
+      "si_value": 1040.0,
+      "unit": "kW"
+    },
+    "peak_dc_power": {
+      "display_value": 4.6,
+      "si_value": 4600.0,
+      "unit": "kW"
+    },
+    "temperature_factor": {
+      "entries": {
+        "Afternoon": {
+          "si_value": 0.96
+        },
+        "LowSun": {
+          "si_value": 1.04
+        },
+        "MidMorning": {
+          "si_value": 1.0
+        },
+        "SolarNoon": {
+          "si_value": 0.92
+        }
+      },
+      "index": "Period"
+    },
+    "total_dc_energy": {
+      "display_value": 10.56,
+      "si_value": 38016000.0,
+      "unit": "kWh"
+    }
+  },
+  "param": {
+    "cell_temperature": {
+      "entries": {
+        "Afternoon": {
+          "display_value": 308.15,
+          "si_value": 308.15,
+          "unit": "K"
+        },
+        "LowSun": {
+          "display_value": 288.15,
+          "si_value": 288.15,
+          "unit": "K"
+        },
+        "MidMorning": {
+          "display_value": 298.15,
+          "si_value": 298.15,
+          "unit": "K"
+        },
+        "SolarNoon": {
+          "display_value": 318.15,
+          "si_value": 318.15,
+          "unit": "K"
+        }
+      },
+      "index": "Period"
+    },
+    "effective_irradiance": {
+      "entries": {
+        "Afternoon": {
+          "display_value": 400.0,
+          "si_value": 400.0,
+          "unit": "W/m^2"
+        },
+        "LowSun": {
+          "display_value": 200.0,
+          "si_value": 200.0,
+          "unit": "W/m^2"
+        },
+        "MidMorning": {
+          "display_value": 600.0,
+          "si_value": 600.0,
+          "unit": "W/m^2"
+        },
+        "SolarNoon": {
+          "display_value": 1000.0,
+          "si_value": 1000.0,
+          "unit": "W/m^2"
+        }
+      },
+      "index": "Period"
+    },
+    "interval_duration": {
+      "display_value": 1.0,
+      "si_value": 3600.0,
+      "unit": "h"
+    },
+    "nameplate_dc_power": {
+      "display_value": 5.0,
+      "si_value": 5000.0,
+      "unit": "kW"
+    },
+    "temperature_coefficient": {
+      "si_value": -0.004,
+      "unit": "K^-1"
+    }
+  }
+}
