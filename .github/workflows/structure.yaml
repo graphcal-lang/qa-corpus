@@ -48,3 +48,19 @@ jobs:
 
       - name: Validate corpus structure
         run: uv run validate-corpus
+
+  prek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out corpus data
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run pre-commit hooks
+        uses: j178/prek-action@v3.1.0
+        with:
+          # Follow the prek version bundled with the action (updated by Renovate).
+          prek-version: latest-known
+          extra-args: --all-files
