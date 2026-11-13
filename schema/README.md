@@ -98,9 +98,13 @@ kind = "reference-backed"
 evidence = "reference/calculation.md"
 
 [[projects.cases.expectation.assertions]]
-pointer = "/node/mass_ratio/si_value"
-expected = 10.0
-absolute_tolerance = 1.0
+pointer = "/node/reported_reference_evapotranspiration/display_value"
+expected = 3.9
+absolute_tolerance = 1e-12
+
+[[projects.cases.expectation.assertions]]
+pointer = "/node/reported_reference_evapotranspiration/unit"
+expected = "mm_per_day"
 ```
 
 A reference-backed expectation requires:
@@ -110,7 +114,7 @@ A reference-backed expectation requires:
 
 `expected` is a JSON scalar representable in TOML: boolean, integer, float, or string. Numeric assertions use optional non-negative finite `absolute_tolerance` and `relative_tolerance` values, both zero by default. Non-numeric assertions are exact and cannot declare a positive tolerance.
 
-The checked-in evidence must identify the source, assumptions, adaptations, conventions, independent calculation, and licensing status. The runner enforces the declared values but cannot establish that the evidence itself is trustworthy; human review remains required.
+The checked-in evidence must identify the reliable public source that reports both the reproduced inputs and each asserted output. It must map every assertion to an exact example, page, table, test vector, or other source location; document assumptions, adaptations, conventions, source precision, rounding, unit conversions, and licensing status; and avoid asserting locally generated extra precision. A local analytical or independent calculation may corroborate the source but cannot be the sole oracle. If the source provides only an equation or method, use `stability-baseline` instead. The runner enforces the declared values but cannot establish that the evidence itself is trustworthy; human review remains required.
 
 ## Project files and paths
 

@@ -1,0 +1,30 @@
+const unit L: Volume = 0.001 m^3;
+
+param cutback_asphalt_mass: Mass = 10000.0 kg;
+param diluent_volume_fraction: Dimensionless = 0.45;
+param diluent_density: Mass / Volume = 0.7 kg/L;
+param asphalt_cement_density: Mass / Volume = 1.1 kg/L;
+param evaporated_diluent_fraction: Dimensionless = 0.95;
+
+const node volume_reporting_increment: Volume = 100.0 L;
+const node mass_reporting_increment: Mass = 100.0 kg;
+
+node asphalt_to_diluent_volume_ratio: Dimensionless = (
+    1.0 - @diluent_volume_fraction
+) / @diluent_volume_fraction;
+node diluent_volume: Volume = @cutback_asphalt_mass / (
+    @diluent_density + @asphalt_cement_density * @asphalt_to_diluent_volume_ratio
+);
+node diluent_mass: Mass = @diluent_volume * @diluent_density;
+node reported_diluent_volume: Volume = round(
+    @diluent_volume / @volume_reporting_increment
+) * @volume_reporting_increment -> L;
+node reported_diluent_mass: Mass = round(
+    @diluent_mass / @mass_reporting_increment
+) * @mass_reporting_increment -> kg;
+node reported_voc_mass: Mass = round(
+    @reported_diluent_mass * @evaporated_diluent_fraction / @mass_reporting_increment
+) * @mass_reporting_increment -> kg;
+node reported_voc_percent_by_mass: Dimensionless = round(
+    @reported_voc_mass / @cutback_asphalt_mass * 100.0
+);
