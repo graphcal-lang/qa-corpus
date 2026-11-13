@@ -1,0 +1,132 @@
+param measured_deflection: Dimensionless[Fin(40)],
+param applied_load_value:  Dimensionless(min: 150000.0, max: 3000000.0)[Fin(40)]
+    = table[Fin(40), (_, _)] {
+        :       _,         _;
+        0.11019,  150000.0;
+        0.21956,  300000.0;
+        0.32949,  450000.0;
+        0.43899,  600000.0;
+        0.54803,  750000.0;
+        0.65694,  900000.0;
+        0.76562, 1050000.0;
+        0.87487, 1200000.0;
+        0.98292, 1350000.0;
+        1.09146, 1500000.0;
+        1.20001, 1650000.0;
+        1.30822, 1800000.0;
+        1.41599, 1950000.0;
+        1.52399, 2100000.0;
+        1.63194, 2250000.0;
+        1.73947, 2400000.0;
+        1.84646, 2550000.0;
+        1.95392, 2700000.0;
+        2.06128, 2850000.0;
+        2.16844, 3000000.0;
+        0.11052,  150000.0;
+        0.22018,  300000.0;
+        0.32939,  450000.0;
+        0.43886,  600000.0;
+        0.54798,  750000.0;
+        0.65739,  900000.0;
+        0.76596, 1050000.0;
+        0.87474, 1200000.0;
+        0.98300, 1350000.0;
+        1.09150, 1500000.0;
+        1.20004, 1650000.0;
+        1.30818, 1800000.0;
+        1.41613, 1950000.0;
+        1.52408, 2100000.0;
+        1.63159, 2250000.0;
+        1.73965, 2400000.0;
+        1.84696, 2550000.0;
+        1.95445, 2700000.0;
+        2.06177, 2850000.0;
+        2.16829, 3000000.0;
+    };
+
+index CalibrationLoad = range(150000.0, 3000000.0, step: 150000.0);
+
+const node load_center: Dimensionless = 1575000.0;
+const node load_scale: Dimensionless = 1500000.0;
+const node source_load_normalization: Dimensionless = 1000000.0;
+const node source_center_per_million: Dimensionless = @load_center / @source_load_normalization;
+const node source_scale_per_million: Dimensionless = @load_scale / @source_load_normalization;
+
+assert loads_match_source_range = for sample: Fin(40) {
+    @applied_load_value[sample] >= 150000.0 && @applied_load_value[sample] <= 3000000.0
+};
+
+#[assumes(loads_match_source_range)]
+node normalized_load: Dimensionless[Fin(40)] = for sample: Fin(40) {
+    (@applied_load_value[sample] - @load_center) / @load_scale
+};
+node design_matrix: Dimensionless[Fin(40), Fin(3)] = for sample: Fin(40), term: Fin(3) {
+    if term == key(Fin(3), 0) {
+        1.0
+    } else {
+        if term == key(Fin(3), 1) { @normalized_load[sample] } else { @normalized_load[sample] ^ 2 }
+    }
+};
+node design_transpose: Dimensionless[Fin(3), Fin(40)] = transpose(@design_matrix);
+node normal_matrix: Dimensionless[Fin(3), Fin(3)] = matmul(@design_transpose, @design_matrix);
+node normal_rhs: Dimensionless[Fin(3)] = for term: Fin(3) {
+    dot(for sample: Fin(40) { @design_matrix[sample, term] }, @measured_deflection)
+};
+node centered_coefficients: Dimensionless[Fin(3)] = solve(@normal_matrix, @normal_rhs);
+node normal_matrix_inverse: Dimensionless[Fin(3), Fin(3)] = inverse(@normal_matrix);
+node normal_matrix_determinant: Dimensionless = det(@normal_matrix);
+node source_quadratic_coefficient_per_million_squared: Dimensionless = @centered_coefficients[2] / @source_scale_per_million ^ 2;
+node source_linear_coefficient_per_million: Dimensionless = @centered_coefficients[1] / @source_scale_per_million - 2.0 * @source_center_per_million * @source_quadratic_coefficient_per_million_squared;
+node source_intercept: Dimensionless = @centered_coefficients[0] - @source_center_per_million * @centered_coefficients[1] / @source_scale_per_million + @source_center_per_million ^ 2 * @source_quadratic_coefficient_per_million_squared;
+node fitted_deflection: Dimensionless[Fin(40)] = for sample: Fin(40) {
+    dot(for term: Fin(3) { @design_matrix[sample, term] }, @centered_coefficients)
+};
+node residual: Dimensionless[Fin(40)] = for sample: Fin(40) {
+    @measured_deflection[sample] - @fitted_deflection[sample]
+};
+node residual_norm: Dimensionless = norm(@residual);
+node residual_standard_deviation: Dimensionless = @residual_norm / sqrt(37.0);
+
+node fitted_curve: Dimensionless[CalibrationLoad] = for load: CalibrationLoad {
+    @source_intercept + @source_linear_coefficient_per_million * (
+        coord(load) / @source_load_normalization
+    ) + @source_quadratic_coefficient_per_million_squared * (
+        coord(load) / @source_load_normalization
+    ) ^ 2
+};
+
+assert intercept_matches_nist = @source_intercept ~= 0.000673565789473684 +/- 5.0e-16;
+assert linear_coefficient_matches_nist = @source_linear_coefficient_per_million ~= 0.732059160401003 +/- 5.0e-13;
+assert quadratic_coefficient_matches_nist = @source_quadratic_coefficient_per_million_squared ~= -0.00316081871345029 +/- 5.0e-15;
+assert residual_sd_matches_nist = @residual_standard_deviation ~= 0.000205177424076185 +/- 5.0e-16;
+
+#[hidden]
+plot measured_points = {
+    mark: point {
+        color: "#1f77b4",
+        size: 35.0,
+    },
+    encode: {
+        x: for sample: Fin(40) { @applied_load_value[sample] },
+        y: for sample: Fin(40) { @measured_deflection[sample] },
+    },
+};
+
+#[hidden]
+plot quadratic_curve = {
+    mark: line {
+        color: "#d62728",
+        stroke_width: 2.0,
+    },
+    encode: {
+        x: for load: CalibrationLoad { coord(load) },
+        y: for load: CalibrationLoad { @fitted_curve[load] },
+    },
+};
+
+layer calibration_fit = {
+    plots: [measured_points, quadratic_curve],
+    title: "NIST Load Cell Quadratic Calibration",
+    width: 640.0,
+    height: 360.0,
+};

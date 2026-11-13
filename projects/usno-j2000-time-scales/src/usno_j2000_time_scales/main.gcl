@@ -1,0 +1,33 @@
+const unit ms: Time = 0.001 s;
+
+param j2000_tt: Datetime<TT>(min: epoch<TT>("2000-01-01T00:00:00"), max: epoch<TT>(
+    "2000-01-02T00:00:00"
+)) = epoch<TT>("2000-01-01T12:00:00");
+
+const node tai_noon: Datetime<TAI> = epoch<TAI>("2000-01-01T12:00:00");
+const node utc_noon: Datetime<UTC> = epoch<UTC>("2000-01-01T12:00:00");
+
+node j2000_tai: Datetime<TAI> = to_tai(@j2000_tt);
+node j2000_utc: Datetime<UTC> = to_utc(@j2000_tt);
+node j2000_tt_round_trip: Datetime<TT> = to_tt(@j2000_utc);
+node tai_time_before_noon: Time = @tai_noon - @j2000_tai;
+node utc_time_before_noon: Time = @utc_noon - @j2000_utc;
+node reported_tai_time_before_noon: Time = round(@tai_time_before_noon / 1.0 ms) * 1.0 ms -> s;
+node reported_utc_time_before_noon: Time = round(@utc_time_before_noon / 1.0 ms) * 1.0 ms -> s;
+
+node tt_hour: Int = hour(@j2000_tt);
+node tai_hour: Int = hour(@j2000_tai);
+node tai_minute: Int = minute(@j2000_tai);
+node tai_second: Int = second(@j2000_tai);
+node utc_hour: Int = hour(@j2000_utc);
+node utc_minute: Int = minute(@j2000_utc);
+node utc_second: Int = second(@j2000_utc);
+node utc_day_of_year: Int = day_of_year(@j2000_utc);
+node utc_weekday: Int = weekday(@j2000_utc);
+
+assert tt_coordinate_is_noon = @tt_hour == 12;
+assert tai_coordinate_matches_usno = @tai_hour == 11 && @tai_minute == 59 && @tai_second == 27;
+assert utc_coordinate_matches_usno = @utc_hour == 11 && @utc_minute == 58 && @utc_second == 55;
+assert tai_fraction_matches_usno = @reported_tai_time_before_noon ~= 32.184 s +/- 0.000000001 s;
+assert utc_fraction_matches_usno = @reported_utc_time_before_noon ~= 64.184 s +/- 0.000000001 s;
+assert scale_round_trip = @j2000_tt_round_trip == @j2000_tt;
